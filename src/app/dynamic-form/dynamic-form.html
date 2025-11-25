@@ -1,0 +1,60 @@
+<form class="form" [formGroup]="profileForm" (ngSubmit)="onSubmit()">
+
+                        @for (section of onboardingForm; track section.title) {
+                        <div class="section-block">
+                            <h4 class="box-title mb-0" style="color: var(--primarycolor);">
+                                {{ section.title }}
+                            </h4>
+                            <hr class="my-15" />
+                            <div class="row"> @for (field of section.fields; track field) {
+                                <div class="col-sm-12  col-md-6 col-lg-3  mb-20">
+                                    <div class="form-group">
+                                        @if (typeof field === 'string') {
+                                        <label *ngIf="getInputType(field) !== 'checkbox'"
+                                            [for]="sanitizeControlName(field)" class="required">
+                                            {{ field }}
+                                        </label>
+                                        @if (getInputType(field) === 'checkbox') { <div class="form-check"> <input type="checkbox" class="form-check-input" [id]="sanitizeControlName(field)" [formControlName]="sanitizeControlName(field)" [ngClass]="{ 'is-invalid': profileForm.get(sanitizeControlName(field))?.touched && profileForm.get(sanitizeControlName(field))?.invalid }" />
+                                            <label class="form-check-label" [for]="sanitizeControlName(field)">
+                                                {{ field }}
+                                            </label>
+                                        </div>
+                                        } @else {
+                                        <input [type]="getInputType(field)" class="form-control" [id]="sanitizeControlName(field)" [formControlName]="sanitizeControlName(field)" [placeholder]="field" [ngClass]="{ 'is-invalid': profileForm.get(sanitizeControlName(field))?.touched && profileForm.get(sanitizeControlName(field))?.invalid }" />
+                                        }
+
+                                        <div class="text-danger" *ngIf="profileForm.get(sanitizeControlName(field))?.touched && profileForm.get(sanitizeControlName(field))?.hasError('required')"> {{ field }} is required </div>
+                                        }
+                                        @else if (field?.type === 'dropdown') {
+                                        <label [for]="sanitizeControlName(field.label)" class="required">{{
+                                            field.label }}</label>
+                                        <select class="form-control" [id]="sanitizeControlName(field.label)" [formControlName]="sanitizeControlName(field.label)" [ngClass]="{ 'is-invalid': profileForm.get(sanitizeControlName(field.label))?.touched && profileForm.get(sanitizeControlName(field.label))?.invalid }">
+                                            <option value="">Select {{ field.label }}</option>
+                                            @for (option of field.options; track option) {
+                                            <option [value]="option">{{ option }}</option>
+                                            }
+                                        </select>
+                                        <div class="text-danger" *ngIf="profileForm.get(sanitizeControlName(field.label))?.touched && profileForm.get(sanitizeControlName(field.label))?.hasError('required')">
+                                            {{ field.label }} is required
+                                        </div>
+                                        }
+
+                                    </div>
+                                </div>
+                                }
+
+                            </div>
+                        </div>
+                        }
+                        <div class="box-footer d-flex justify-content-center my-25" *ngIf="!readonly">
+                            <button type="submit" class="btn btn-primary" [disabled]="profileForm.invalid">
+                                <i class="ti-save-alt"></i> Save
+                            </button>
+                            <button type="button" class="btn btn-warning ms-3" (click)="resetForm()">
+                                <i class="ti-trash"></i> Reset
+                            </button>
+                            <button type="button" class="btn btn-warning ms-3" (click)="goToDashboard()">
+                                <i class="ti-trash"></i> Close
+                            </button>
+                        </div>
+                    </form>

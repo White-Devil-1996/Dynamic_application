@@ -1,0 +1,93 @@
+<div class="dashboard-layout" [class.collapsed]="collapsed">
+  <div class="overlay" *ngIf="!collapsed && isMobile" (click)="toggleCollapse()"></div>
+
+  
+  
+  
+  
+  
+  
+  
+  
+  <aside class="sidebar" role="navigation" aria-label="Main navigation">
+    <header class="topbar">
+      <h2 class="brand">{{ appModel.brand.title }}</h2>
+
+      <div class="sidebar-controls">
+        <button class="close-btn mobile-only" *ngIf="isMobile" (click)="toggleCollapse()">✕</button>
+      </div>
+    </header>
+
+    <nav class="nav" aria-label="Primary">
+      <ng-container *ngFor="let menu of appModel.menus; trackBy: trackByMenu">
+        <ng-container *ngIf="menu.children && menu.children.length; else singleLink">
+          <div class="nav-group" [class.active]="isActive(menu)">
+            <button
+              class="nav-toggle"
+              (click)="onTopLevelClick(menu)"
+              [attr.aria-expanded]="openSubmenu === menu.id"
+            >
+              <i *ngIf="menu.icon" [class]="menu.icon" aria-hidden="true" style="margin-right:8px"></i>
+              {{ menu.label }}
+              <span class="chev" [class.open]="openSubmenu === menu.id">▾</span>
+            </button>
+
+            <div class="submenu" *ngIf="openSubmenu === menu.id">
+              <a
+                *ngFor="let child of menu.children; trackBy: trackByMenu"
+                [routerLink]="child.route"
+                (click)="onChildClick(menu, child)"
+                [class.active]="isActive(child)"
+              >
+                <i *ngIf="child.icon" [class]="child.icon" aria-hidden="true" style="margin-right:8px"></i>
+                {{ child.label }}
+              </a>
+            </div>
+          </div>
+        </ng-container>
+
+        <ng-template #singleLink>
+          <a
+            [routerLink]="menu.route"
+            (click)="onTopLevelClick(menu)"
+            [class.active]="isActive(menu)"
+          >
+            <i *ngIf="menu.icon" [class]="menu.icon" aria-hidden="true" style="margin-right:8px"></i>
+            {{ menu.label }}
+          </a>
+        </ng-template>
+      </ng-container>
+    </nav>
+
+    <footer class="footer">
+      <div>
+        {{ appModel.footer.copyrightPrefix }} {{ currentYear }} {{ appModel.footer.name }}
+      </div>
+    </footer>
+  </aside>
+
+
+
+
+
+
+
+
+  
+  <main class="content" [class.dimmed]="!collapsed && isMobile">
+    <header class="topbar">
+      <div class="left">
+        <button class="hamburger" (click)="toggleCollapse()" aria-label="Open menu">☰</button>
+      </div>
+
+      <div class="right">
+        <span class="user">{{ appModel.topbar.userLabelPrefix }} User</span>
+        <button *ngIf="appModel.topbar.showLogout" class="logout" (click)="logout()">Logout</button>
+      </div>
+    </header>
+
+    <section class="page-content">
+      <router-outlet></router-outlet>
+    </section>
+  </main>
+</div>

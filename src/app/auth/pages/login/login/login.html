@@ -1,0 +1,176 @@
+<!-- Only render once loginConfig is ready to avoid AOT "possibly undefined" complaints -->
+<ng-container *ngIf="loginConfig">
+  <div class="container" [class.sign-up-mode]="isSignUpMode">
+    <div class="forms-container">
+      <div class="signin-signup">
+        <!-- SIGN IN FORM -->
+        <form [formGroup]="signinform" (ngSubmit)="signin()" class="sign-in-form" novalidate>
+          <img [src]="loginConfig.signIn.logoSrc" alt="logo" width="100px" />
+          <h2 class="title m-t-20">{{ loginConfig.signIn.title }}</h2>
+
+          <!-- iterate sign-in fields -->
+          <ng-container *ngFor="let f of loginConfig.signIn.fields">
+            <div
+              class="input-field"
+              [class.invalid]="controlInvalid(signinform, f.name) || serverFieldErrors[f.name]"
+              [ngClass]="{ eyeposition: f.type === 'password' }"
+            >
+              <i [ngClass]="f.iconClass"></i>
+
+              <input
+                *ngIf="f.type !== 'password' && f.type !== 'color'"
+                [attr.type]="f.type"
+                [formControlName]="f.name"
+                [placeholder]="f.placeholder"
+                [attr.maxlength]="f.attrs ? f.attrs['maxlength'] : null"
+                [attr.aria-label]="f.name"
+              />
+
+              <input
+                *ngIf="f.type === 'password'"
+                [type]="showPassword['signIn.' + f.name] ? 'text' : 'password'"
+                [formControlName]="f.name"
+                [placeholder]="f.placeholder"
+                [attr.aria-label]="f.name"
+              />
+
+              <input
+                *ngIf="f.type === 'color'"
+                type="color"
+                [formControlName]="f.name"
+                [attr.aria-label]="f.name"
+              />
+
+              <!-- Eye toggle for password -->
+              <button
+                *ngIf="f.type === 'password'"
+                type="button"
+                class="eye-toggle"
+                (click)="togglePassword('signIn', f.name)"
+                aria-label="toggle password"
+              >
+                <i class="fa" [ngClass]="showPassword['signIn.' + f.name] ? 'fa-eye-slash' : 'fa-eye'"></i>
+              </button>
+            </div>
+
+            <div *ngIf="controlInvalid(signinform, f.name) || serverFieldErrors[f.name]" class="error-message">
+              {{ serverFieldErrors[f.name] || getErrorMessage(signinform, f.name, 'signIn') }}
+            </div>
+          </ng-container>
+
+          <div class="dis-right1 fs-14 m-t-10 m-b-10" style="display:flex; justify-content:space-between!important">
+            <div class="remember">
+              <div class="form-group">
+                <input type="checkbox" [id]="loginConfig.signIn.rememberMe?.id" class="m-r-5" />
+                <label [for]="loginConfig.signIn.rememberMe?.id">{{ loginConfig.signIn.rememberMe?.label }}</label>
+              </div>
+            </div>
+
+            <a [href]="loginConfig.signIn.forgot?.href">
+              <div>
+                <span class="remember">{{ loginConfig.signIn.forgot?.textPrefix }}</span>
+                <span class="user-color">{{ loginConfig.signIn.forgot?.textSuffix }}</span>
+              </div>
+            </a>
+          </div>
+
+          <button class="btn solid" type="submit" [disabled]="signinform.invalid || isSigningIn">
+            <span *ngIf="!isSigningIn">{{ loginConfig.signIn.submitText }}</span>
+            <span *ngIf="isSigningIn" class="btn-with-spinner">
+              <span class="spinner" aria-hidden="true"></span>
+              {{ loginConfig.signIn.loadingText }}
+            </span>
+          </button>
+        </form>
+
+        <!-- SIGN UP FORM -->
+        <form [formGroup]="signupform" (ngSubmit)="signup()" class="sign-up-form" novalidate>
+          <h2 class="title">{{ loginConfig.signUp.title }}</h2>
+
+          <!-- iterate sign-up fields -->
+          <ng-container *ngFor="let f of loginConfig.signUp.fields">
+            <div
+              class="input-field"
+              [class.invalid]="controlInvalid(signupform, f.name) || serverFieldErrors[f.name]"
+              [ngClass]="{ eyeposition: f.type === 'password' }"
+            >
+              <i [ngClass]="f.iconClass"></i>
+
+              <input
+                *ngIf="f.type !== 'password' && f.type !== 'color'"
+                [attr.type]="f.type"
+                [formControlName]="f.name"
+                [placeholder]="f.placeholder"
+                [attr.maxlength]="f.attrs ? f.attrs['maxlength'] : null"
+                [attr.aria-label]="f.name"
+              />
+
+              <input
+                *ngIf="f.type === 'password'"
+                [type]="showPassword['signUp.' + f.name] ? 'text' : 'password'"
+                [formControlName]="f.name"
+                [placeholder]="f.placeholder"
+                [attr.aria-label]="f.name"
+              />
+
+              <input
+                *ngIf="f.type === 'color'"
+                type="color"
+                [formControlName]="f.name"
+                [attr.aria-label]="f.name"
+              />
+
+              <button
+                *ngIf="f.type === 'password'"
+                type="button"
+                class="eye-toggle"
+                (click)="togglePassword('signUp', f.name)"
+                aria-label="toggle password"
+              >
+                <i class="fa" [ngClass]="showPassword['signUp.' + f.name] ? 'fa-eye-slash' : 'fa-eye'"></i>
+              </button>
+            </div>
+
+            <div *ngIf="controlInvalid(signupform, f.name) || serverFieldErrors[f.name]" class="error-message">
+              {{ serverFieldErrors[f.name] || getErrorMessage(signupform, f.name, 'signUp') }}
+            </div>
+          </ng-container>
+
+          <button class="btn solid" type="submit" [disabled]="signupform.invalid || isSigningUp">
+            <span *ngIf="!isSigningUp">{{ loginConfig.signUp.submitText }}</span>
+            <span *ngIf="isSigningUp" class="btn-with-spinner">
+              <span class="spinner" aria-hidden="true"></span>
+              {{ loginConfig.signUp.loadingText }}
+            </span>
+          </button>
+
+          <div class="social-media"></div>
+        </form>
+      </div>
+    </div>
+
+    <div class="panels-container">
+      <div class="panel left-panel">
+        <div class="content">
+          <h3>{{ loginConfig.panels.left.title }}</h3>
+          <p>{{ loginConfig.panels.left.text }}<span class=""> </span></p>
+          <button class="btn transparent" type="button" (click)="switchToSignup()">
+            {{ loginConfig.panels.left.buttonText }}
+          </button>
+        </div>
+        <img [src]="loginConfig.panels.left.imageSrc" class="image" alt="left panel image" />
+      </div>
+
+      <div class="panel right-panel">
+        <div class="content">
+          <h3>{{ loginConfig.panels.right.title }}</h3>
+          <p>{{ loginConfig.panels.right.text }}</p>
+          <button class="btn transparent" type="button" (click)="switchToSignin()">
+            {{ loginConfig.panels.right.buttonText }}
+          </button>
+        </div>
+        <img [src]="loginConfig.panels.right.imageSrc" class="image" alt="right panel image" />
+      </div>
+    </div>
+  </div>
+</ng-container>

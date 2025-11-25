@@ -1,0 +1,41 @@
+/* @import url(./assert/); */
+:host { display:block; padding:16px; }
+.form-card { background: var(--white); border-radius:8px; padding:16px; border:1px solid var(--primary-light-12); box-shadow: 0 6px 18px var(--primary-light-04); }
+.form-header { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+.btn.back { background:transparent; border:none; color:var(--primary); font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px; }
+.form-body .row { display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
+.form-body label { font-weight:600; color:var(--primary); }
+.form-body input { padding:8px 10px; border-radius:6px; border:1px solid var(--primary-light-12); }
+.form-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:8px; }
+.btn.cancel { background:transparent; border:1px solid var(--primary-light-12); padding:8px 12px; border-radius:6px; }
+.btn.save { background:var(--primary); color:#fff; border:none; padding:8px 12px; border-radius:6px; }
+.error { color: #d9534f; font-size:12px; }
+
+
+
+
+.is-invalid {
+  border-color: red;
+}
+.text-danger {
+  font-size: 0.875rem;
+}
+.required::after {
+  content: ' *';
+  color: red;
+}
+
+
+label .required::after {
+  content: ' *';
+  color: red;
+}
+.customer{
+  padding: 20px!important;
+}
+
+::ng-deep label.required::after {
+  content: ' *';
+  color: red;
+  margin-left: 3px;
+}

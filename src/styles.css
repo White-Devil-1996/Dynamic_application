@@ -1,0 +1,32 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --primary: #5156be;
+  --background: rgba(0, 0, 0, 0.03);
+  --white: #fff;
+  --primary-rgb: 81, 86, 190;
+  /* for opacity backgrounds */
+  --primary-light-04: rgba(var(--primary-rgb), 0.04);
+  --primary-light-08: rgba(var(--primary-rgb), 0.08);
+  --primary-light-12: rgba(var(--primary-rgb), 0.12);
+  --primary-light-16: rgba(var(--primary-rgb), 0.16);
+  --primary-light-20: rgba(var(--primary-rgb), 0.20);
+  --primary-light-36: rgba(var(--primary-rgb), 0.36);
+}
+
+.sidebar {
+  border-right: 1px solid rgba(var(--primary-rgb), 0.04);
+}
+
+.topbar {
+  box-shadow: 0 1px 0 rgba(var(--primary-rgb), 0.02);
+}
+
+body,
+input {
+  font-family: "roboto", sans-serif;
+}

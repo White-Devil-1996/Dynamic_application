@@ -1,0 +1,49 @@
+.mainContainer {
+    background-color: white;
+    /* height: 90vh; */
+    overflow-y: auto;
+    border-radius: 25px;
+    border-radius: 21px;
+    background: #ffffff;
+    box-shadow: 6px 6px 12px #e8e8e8, -6px -6px 12px #ffffff;
+    border: 1px solid var(--primary);
+    overflow: hidden;
+}
+
+.head-top {
+    height: 8vh;
+    display: flex;
+    background: var(--background);
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid var(--primary);
+    border-radius: 22px 22px 0 0;
+}
+
+.headers {
+    margin-left: 15px;
+    color: var(--primary);
+}
+
+.head-top i {
+    color: var(--white);
+}
+
+.fontstyle {
+    display: none;
+    padding: 8px;
+    background-color: var(--primary);
+    color: var(--white);
+    border-radius: 10px;
+}
+
+.dynamic-body {
+    /* display: flex;
+    align-items: center;
+    padding: 20px; */
+    /* height: 100vh;overflow: scroll; */
+}
+
+/* .dynamic-body .nav::-webkit-scrollbar {
+    display: none!important;
+} */
