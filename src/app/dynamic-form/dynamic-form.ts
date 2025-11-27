@@ -204,6 +204,8 @@ export class DynamicForm implements OnInit, OnDestroy {
       this.mode = (m === 'edit' || m === 'view') ? m : 'add';
       // set readonly if view
       this.readonly = (this.mode === 'view');
+      // ensure controls reflect readonly state (disable/enable)
+      this.applyReadonlyToControls();
       if (id) this.editingId = id;
 
       if (params['returnUrl']) {
@@ -219,27 +221,36 @@ export class DynamicForm implements OnInit, OnDestroy {
     if (rec) {
       // ensure form controls exist (generateDynamicForm created them)
       this.populateFormFromRecord(rec);
-      // if view mode, keep form controls disabled for extra safety:
-      if (this.mode === 'view') {
-        // disable all controls (keeps UI read-only)
-        Object.keys(this.profileForm.controls).forEach(k => {
-          // don't disable common_currency display (optional)
-          if (k === 'common_currency') return;
-          this.profileForm.get(k)?.disable({ emitEvent: false });
-        });
-      }
+      // if view mode, ensure controls are disabled for extra safety
+      if (this.mode === 'view') this.applyReadonlyToControls();
     }
 
     // Try to populate from shared service or navigation state
     const svcRec = this.editSvc.get();
     if (svcRec) {
       // small safety: schedule populate on next tick to avoid micro-timing issues
-      setTimeout(() => this.populateFormFromRecord(svcRec), 0);
+      setTimeout(() => {
+        this.populateFormFromRecord(svcRec);
+        if (this.readonly) this.applyReadonlyToControls();
+      }, 0);
     } else {
       const nav2 = this.router.getCurrentNavigation();
       const rec2 = nav2?.extras?.state?.['record'];
       if (rec2) this.populateFormFromRecord(rec2);
     }
+  }
+
+  // ensure controls reflect `this.readonly` state; keep `common_currency` enabled intentionally
+  private applyReadonlyToControls() {
+    if (!this.profileForm) return;
+    Object.keys(this.profileForm.controls).forEach(k => {
+      const ctrl = this.profileForm.get(k);
+      if (!ctrl) return;
+      try {
+        if (this.readonly) ctrl.disable({ emitEvent: false });
+        else ctrl.enable({ emitEvent: false });
+      } catch (err) { /* ignore */ }
+    });
   }
 
 
