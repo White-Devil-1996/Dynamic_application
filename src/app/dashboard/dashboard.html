@@ -1,1 +1,30 @@
-<p>dashboard</p>
+<!-- KPI cards row -->
+<div class="kpi-grid" role="region" aria-label="Dashboard KPIs">
+  <div *ngFor="let k of kpis; trackBy: trackByKPI" class="kpi-card">
+    <div class="kpi-title">{{ k.title }}</div>
+    <div class="kpi-value">{{ k.value }}</div>
+    <div *ngIf="k.subtitle" class="kpi-sub">{{ k.subtitle }}</div>
+  </div>
+</div>
+
+<!-- Charts Section Title -->
+<div style="padding: 0 16px; margin-top: 20px;">
+  <h2 style="margin: 0; font-size: 20px; font-weight: 700; color: #1a1a1a;">Analytics & Reports</h2>
+  <p style="margin: 4px 0; font-size: 13px; color: #999;">Key metrics and data visualization</p>
+</div>
+
+<!-- Charts grid -->
+<div class="dashboard-grid" aria-live="polite" aria-label="Dashboard charts">
+  <div *ngFor="let c of chartData; trackBy: trackByChart" class="card">
+    <h4 class="card-title">{{ c.title }}</h4>
+    <div class="chart-wrapper">
+      <canvas baseChart
+              [data]="c.data"
+              [options]="c.options"
+              [type]="c.type"
+              style="display: block; width: 100%; height: 100%; position: relative;">
+      </canvas>
+    </div>
+  </div>
+</div>
+

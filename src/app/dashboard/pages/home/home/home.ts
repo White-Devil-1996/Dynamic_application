@@ -66,62 +66,93 @@ export class Home implements OnInit {
 
     // Single source of truth for navigation and labels
     this.appModel = {
-      brand: { title: 'Dynamic Application',applicationName: 'Nestora Elite' },
-      topbar: { userLabelPrefix: 'Navin,', showLogout: true },
-      menus: [
+  brand: { title: 'Dynamic Application', applicationName: 'Nestora Elite' },
+  topbar: { userLabelPrefix: 'Navin,', showLogout: true },
+  menus: [
+    {
+      id: 'dashboard',
+      label: 'Dashboard',
+      icon: 'fa fa-tachometer-alt',
+      route: '/home/container/dashboard',
+    },
+    {
+      id: 'customers',
+      label: 'Customers',
+      icon: 'fa fa-users',
+      route: '/home/container/dynamic-grid',
+    },
+    {
+      id: 'management',
+      label: 'Management',
+      icon: 'fa fa-users-cog',
+      children: [
         {
-          id: 'dashboard',
-          label: 'Dashboard',
-          icon: 'fa fa-tachometer',
-          route: '/home/container/dashboard', // leaf -> header will show
+          id: 'management-CustomerManagement',
+          label: 'Customer Management',
+          icon: 'fa fa-user-cog',
+          route: '/home/container/dynamic-grid',
         },
         {
-          id: 'customers',
-          label: 'Customers',
-          icon: 'fa fa-user',
-          route: '/home/container/dynamic-grid', // leaf -> header will show
-        },
-        {
-          id: 'management',
-          label: 'Management',
-          icon: 'fa fa-users',
-          children: [
-            {
-              id: 'management-users',
-              label: 'Users',
-              icon: 'fa fa-user',
-              route: '/home/container/dynamic-grids', // leaf -> header will show
-            },
-            {
-              id: 'management-tenants',
-              label: 'Tenants',
-              icon: 'fa fa-building',
-              route: '/home/container/tenants', // leaf -> header will show
-            },
-          ],
-        },
-        {
-          id: 'settings',
-          label: 'Settings',
-          icon: 'fa fa-cog',
-          children: [
-            {
-              id: 'settings-profile',
-              label: 'Profile',
-              icon: 'fa fa-id-card',
-              route: '/home/container/profile', // leaf -> header will show
-            },
-            {
-              id: 'settings-billing',
-              label: 'Billing',
-              icon: 'fa fa-credit-card',
-              route: '/home/container/billing', // leaf -> header will show
-            },
-          ],
+          id: 'management-InitiateCustomer',
+          label: 'Initiate Customer',
+          icon: 'fa fa-user-plus',
+          route: '/home/container/dynamic-form',
         },
       ],
-      footer: { copyrightPrefix: '©', name: 'Nestora' },
-    };
+    },
+    {
+      id: 'bedcounts',
+      label: 'Bed counts',
+      icon: 'fa fa-bed',
+      route: '/home/container/dynamic-grid1',
+    },
+    {
+      id: 'documents',
+      label: 'Documents',
+      icon: 'fa fa-file-alt',
+      route: '/home/container/dynamic-grid2',
+    },
+    {
+      id: 'billingpayments',
+      label: 'Billing Payments',
+      icon: 'fa fa-file-invoice-dollar',
+      route: '/home/container/dynamic-grid3',
+    },
+    {
+      id: 'notices',
+      label: 'Notices & Communication',
+      icon: 'fa fa-bell',
+      route: '/home/container/dynamic-grid4',
+    },
+    {
+      id: 'reports',
+      label: 'Reports',
+      icon: 'fa fa-chart-bar',
+      route: '/home/container/dynamic-grid6',
+    },
+    {
+      id: 'settings',
+      label: 'Settings',
+      icon: 'fa fa-cog',
+      children: [
+        {
+          id: 'settings-profile',
+          label: 'Profile',
+          icon: 'fa fa-user-circle',
+          route: '/home/container/profile',
+        },
+        {
+          id: 'settings-adminpanel',
+          label: 'Admin Panel',
+          icon: 'fa fa-tools',
+          route: '/home/container/adminpanel',
+        },
+      ],
+    },
+  ],
+  footer: { copyrightPrefix: '©', name: 'Nestora' },
+};
+
 
     // Ensure we set header and active menu from the URL on load
     this.updateActiveFromUrl(this.router.url);
@@ -146,26 +177,36 @@ export class Home implements OnInit {
 
     // simple alias map: routes that should highlight an existing menu
     const aliasMap: { [k: string]: { id: string; label: string } } = {
-      '/home/container/dynamic-form': { id: 'customers', label: 'Customers' },
-      '/home/container/dynamic-form/': { id: 'customers', label: 'Customers' }
+      '/home/container/dynamic-form': { id: 'management-InitiateCustomer', label: 'Initiate Customer' },
+      '/home/container/dynamic-form/': { id: 'management-InitiateCustomer', label: 'Initiate Customer' }
     };
 
     for (const m of this.appModel.menus) {
       // If top-level menu is a leaf (no children) and matches URL -> select it
-      if ((!m.children || m.children.length === 0) && m.route && url === m.route.replace(/\/+$/, '')) {
-        matchedId = m.id;
-        matchedLabel = m.label;
+      if ((!m.children || m.children.length === 0) && m.route) {
+        const cleanRoute = m.route.replace(/\/+$/, '');
+        if (url === cleanRoute) {
+          matchedId = m.id;
+          matchedLabel = m.label;
+          break; // Stop searching once we find a match
+        }
       }
 
       // If it has children, check children routes (children are leaves)
       if (m.children) {
         for (const c of m.children) {
-          if (c.route && url === c.route.replace(/\/+$/, '')) {
-            matchedId = c.id;
-            matchedLabel = c.label;
-            this.openSubmenu = m.id; // Auto-open parent submenu when child is active
+          if (c.route) {
+            const cleanRoute = c.route.replace(/\/+$/, '');
+            if (url === cleanRoute) {
+              matchedId = c.id;
+              matchedLabel = c.label;
+              this.openSubmenu = m.id; // Auto-open parent submenu when child is active
+              break; // Stop searching once we find a match
+            }
           }
         }
+        // If we found a match in children, break outer loop too
+        if (matchedId) break;
       }
     }
 
@@ -175,6 +216,14 @@ export class Home implements OnInit {
         if (url === aliasRoute || url.startsWith(aliasRoute + '/')) {
           matchedId = aliasMap[aliasRoute].id;
           matchedLabel = aliasMap[aliasRoute].label;
+          // Find parent if this is a child item
+          const parentId = aliasMap[aliasRoute].id.split('-')[0];
+          for (const m of this.appModel.menus) {
+            if (m.id === parentId && m.children) {
+              this.openSubmenu = m.id;
+              break;
+            }
+          }
           break;
         }
       }
