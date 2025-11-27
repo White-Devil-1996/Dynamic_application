@@ -1,41 +1,149 @@
-/* @import url(./assert/); */
-:host { display:block; padding:16px; }
-.form-card { background: var(--white); border-radius:8px; padding:16px; border:1px solid var(--primary-light-12); box-shadow: 0 6px 18px var(--primary-light-04); }
-.form-header { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
-.btn.back { background:transparent; border:none; color:var(--primary); font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px; }
-.form-body .row { display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
-.form-body label { font-weight:600; color:var(--primary); }
-.form-body input { padding:8px 10px; border-radius:6px; border:1px solid var(--primary-light-12); }
-.form-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:8px; }
-.btn.cancel { background:transparent; border:1px solid var(--primary-light-12); padding:8px 12px; border-radius:6px; }
-.btn.save { background:var(--primary); color:#fff; border:none; padding:8px 12px; border-radius:6px; }
-.error { color: #d9534f; font-size:12px; }
+:host { display:block; }
 
-
-
-
-.is-invalid {
-  border-color: red;
-}
-.text-danger {
-  font-size: 0.875rem;
-}
-.required::after {
-  content: ' *';
-  color: red;
+/* base controls */
+.form-control,
+.form-select,
+.currency-select {
+  border-color: var(--primary) !important;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 6px;
+  padding: 8px 10px;
 }
 
-
-label .required::after {
-  content: ' *';
-  color: red;
+/* readonly/disabled */
+.form-control[readonly],
+.form-select[readonly],
+input[readonly],
+select[readonly],
+textarea[readonly] {
+  background-color: #e9ecef;
+  border-color: var(--primary);
+  color: #555;
+  cursor: not-allowed;
 }
-.customer{
-  padding: 20px!important;
+.form-control:disabled,
+.form-select:disabled { background:#e0e0e0; color:#666; border-color:var(--primary); }
+
+/* ng-select disabled / readonly appearance */
+:host ::ng-deep .ng-select-custom.ng-select-disabled .ng-select-container,
+:host ::ng-deep .ng-select-custom.ng-select-disabled,
+:host ::ng-deep .ng-select-custom[disabled] .ng-select-container,
+:host ::ng-deep .ng-select-custom[disabled] {
+  background: #e9ecef !important;
+  color: #666 !important;
+  border-color: var(--primary) !important;
+}
+:host ::ng-deep .ng-select-custom.ng-select-disabled .ng-placeholder,
+:host ::ng-deep .ng-select-custom[disabled] .ng-placeholder {
+  color: #666 !important;
+}
+:host ::ng-deep .ng-select-custom.ng-select-disabled .ng-value,
+:host ::ng-deep .ng-select-custom[disabled] .ng-value {
+  color: #333 !important;
+  opacity: 0.9;
 }
 
-::ng-deep label.required::after {
-  content: ' *';
-  color: red;
-  margin-left: 3px;
+/* spacing */
+.form-group { margin-bottom:25px; }
+hr { border:none; border-top:2px solid var(--primary); }
+
+/* amount/currency */
+.currency-select { width:58px;  padding: 8px 10px; text-align-last:center; appearance:none; background-image: url("data:image/svg+xml;utf8,<svg fill='gray' viewBox='0 0 24 24' width='14' height='14' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>"); background-repeat:no-repeat; background-position:right 6px center; background-size:12px; border:1px solid var(--primary); border-radius:4px; }
+.currency-wrap { width:58px; flex-shrink:0; }
+.amount-block { display:flex; gap:8px; width:100%; align-items:flex-start; }
+.amount-wrap { flex:1 1 auto; min-width:0; }
+.base-wrap { width:120px; min-width:120px; flex-shrink:0; }
+
+/* notes */
+.small-note { font-size:0.75rem; color:#666; }
+
+/* required asterisk */
+label.required::after, .form-check-label.required::after { content:' *'; color:#d9534f; margin-left:4px; font-weight:700; }
+
+/* invalid styling */
+input.is-invalid,
+select.is-invalid,
+textarea.is-invalid,
+.form-control.is-invalid,
+.form-select.is-invalid,
+.currency-select.is-invalid,
+.form-check-input.is-invalid {
+  border-color: #d9534f !important;
+  box-shadow: 0 0 0 0.125rem rgba(217,83,79,0.12) !important;
+}
+
+/* text-danger */
+.text-danger { color:#d9534f; font-size:0.875rem; }
+
+/* NOTE: removed custom .custom-select and .cs-* CSS — ng-select provides its own styling via theme import */
+
+/* small screens */
+@media (max-width:767px) {
+  .custom-select .cs-display { min-height:44px; }
+}
+
+/* avoid leftover wrong selectors */
+label .required::after { content:none !important; }
+
+
+
+/* ===== ng-select placeholder fallback ===== */
+:host ::ng-deep .ng-select-custom {
+  display: block;
+  width: 100%;
+  border: none !important; /* outer host no border */
+}
+
+/* main container style (single border) */
+:host ::ng-deep .ng-select-custom .ng-select-container {
+  border: 1px solid var(--primary) !important;
+  border-radius: 6px;
+  min-height: 42px;
+  padding: 6px 10px !important;
+  background: #fff;
+  box-shadow: none;
+}
+
+/* show placeholder only when the control does NOT have a value */
+:host ::ng-deep .ng-select-custom:not(.ng-has-value) .ng-placeholder,
+:host ::ng-deep .ng-select-custom .ng-select-container:not(.ng-has-value) .ng-placeholder {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* hide placeholder when a value exists (normal behavior) */
+:host ::ng-deep .ng-select-custom.ng-has-value .ng-placeholder,
+:host ::ng-deep .ng-select-custom .ng-select-container.ng-has-value .ng-placeholder {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
+/* value styling */
+:host ::ng-deep .ng-select-custom .ng-value {
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* invalid state matches other inputs */
+:host ::ng-deep .ng-select-custom.is-invalid .ng-select-container {
+  border-color: #d9534f !important;
+  box-shadow: 0 0 0 0.125rem rgba(217,83,79,0.12) !important;
+}
+:host ::ng-deep .ng-select-custom .ng-value-container {
+border: none !important;
+}
+:host ::ng-deep .ng-select-container:after {
+  border: none !important;
+}
+
+:host ::ng-deep .ng-select-container .ng-value-container {
+ padding: 0 !important;
+}
+:host ::ng-deep .ng-select {
+  padding: 0 !important;
 }

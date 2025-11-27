@@ -4,15 +4,26 @@ import { FormsModule } from '@angular/forms';
 import { NgxPaginationModule } from 'ngx-pagination';
 import { Router } from '@angular/router';
 import Swal from 'sweetalert2';
+import { EditRecordService } from '../core/services/edit-record.service';
 
-export type Product = {
-  id: string;
-  productName: string;
-  productCode: string;
-  hsnCode: string;
-  salePrice: number;
-  barcode?: string;
-  imageUrl?: string;
+export type UdfFieldInput = {
+  key: string;
+  value: any;
+  label?: string;
+  mandatory?: string | boolean;
+  currency?: string;
+};
+
+export type CustomerRecordInput = {
+  id?: string;
+  fields: UdfFieldInput[];
+};
+
+export type ColumnDef = {
+  key: string;
+  label: string;
+  mandatory: boolean;
+  currency?: string;
 };
 
 @Component({
@@ -23,74 +34,274 @@ export type Product = {
   styleUrls: ['./dynamic-grid.css'],
 })
 export class DynamicGrid implements OnInit {
-  @Input() data: Product[] = [];
+  @Input() data: CustomerRecordInput[] | null = null;
 
-  // UI state
   searchText = '';
-  sortColumn: keyof Product | '' = '';
+  sortColumn = '';
   sortDirection: 'asc' | 'desc' = 'asc';
   itemsPerPage = 8;
-  pPage = 1; // current page for ngx-pagination
+  pPage = 1;
 
-  // internal products
-  products: Product[] = [];
+  records: CustomerRecordInput[] = [];
+  columns: ColumnDef[] = [];
 
-  constructor(private cdr: ChangeDetectorRef, private router: Router) {}
+  constructor(private cdr: ChangeDetectorRef, private router: Router, private editSvc: EditRecordService) { }
 
   ngOnInit(): void {
-    // mock JSON response; replace with HTTP fetch if required
-    const jsonResponse: Product[] = [
-      { id: 'p1', productName: 'Potato', productCode: '03', hsnCode: '02', salePrice: 50, barcode: '03', imageUrl: '/mnt/data/cef196f3-865c-4493-97de-9aaf85660420.png' },
-      { id: 'p2', productName: 'Onion', productCode: '04', hsnCode: '03', salePrice: 40, barcode: '04' },
-      { id: 'p3', productName: 'Tomato', productCode: '05', hsnCode: '04', salePrice: 30, barcode: '05' },
-      { id: 'p4', productName: 'Carrot', productCode: '06', hsnCode: '05', salePrice: 45, barcode: '06' },
-      { id: 'p5', productName: 'Beetroot', productCode: '07', hsnCode: '06', salePrice: 35, barcode: '07' },
-      { id: 'p6', productName: 'Radish', productCode: '08', hsnCode: '07', salePrice: 25, barcode: '08' },
-      { id: 'p7', productName: 'Brinjal', productCode: '09', hsnCode: '08', salePrice: 55, barcode: '09' },
-      { id: 'p8', productName: 'Cabbage', productCode: '10', hsnCode: '09', salePrice: 60, barcode: '10' },
-      { id: 'p9', productName: 'Spinach', productCode: '11', hsnCode: '10', salePrice: 20, barcode: '11' },
-      { id: 'p10', productName: 'Capsicum', productCode: '12', hsnCode: '11', salePrice: 70, barcode: '12' }
+    const sample: CustomerRecordInput[] = [
+      {
+        id: 'c1',
+        fields: [
+          { key: 'udf1', value: 'Navin', label: 'Full Name', mandatory: 'yes' },
+          { key: 'udf2', value: '2025-11-13', label: 'Date of Birth', mandatory: 'yes' },
+          { key: 'udf3', value: 'Male', label: 'Gender', mandatory: 'yes' },
+          { key: 'udf4', value: '9765555577', label: 'Mobile Number', mandatory: 'yes' },
+          { key: 'udf5', value: 'navin@example.com', label: 'Email ID', mandatory: 'yes' },
+          { key: 'udf6', value: 'Ramesh Kumar', label: "Father's / Guardian’s Name", mandatory: 'no' },
+          { key: 'udf7', value: '12 MG Street', label: 'Permanent Address', mandatory: 'yes' },
+          { key: 'udf8', value: 'Chennai', label: 'City', mandatory: 'yes' },
+          { key: 'udf9', value: 'Tamil Nadu', label: 'State', mandatory: 'yes' },
+          { key: 'udf10', value: '600001', label: 'Pincode', mandatory: 'yes' },
+          { key: 'udf11', value: 'Aadhaar Card', label: 'ID Type', mandatory: 'yes' },
+          { key: 'udf12', value: '123456789000', label: 'ID Number', mandatory: 'yes' },
+          { key: 'udf13', value: 'C:\\fakepath\\id1.jpg', label: 'Upload ID Proof', mandatory: 'yes' },
+          { key: 'udf14', value: 'C:\\fakepath\\photo1.jpg', label: 'Passport Photo', mandatory: 'no' },
+          { key: 'udf15', value: '2025-11-14', label: 'Check-in Date', mandatory: 'yes' },
+          { key: 'udf16', value: 'Single', label: 'Room Sharing Type', mandatory: 'yes' },
+          { key: 'udf17', value: '101', label: 'Room Numbers', mandatory: 'yes' },
+          { key: 'udf18', value: '1', label: 'Bed Numbers', mandatory: 'no' },
+          { key: 'udf19', value: 10000, label: 'Advance Paid So Far', currency: 'INR', mandatory: 'no' },
+          { key: 'udf20', value: 8000, label: 'Rent Paid So Far', currency: 'INR', mandatory: 'no' },
+          { key: 'udf21', value: 'Suresh', label: 'Emergency Contact Name', mandatory: 'yes' },
+          { key: 'udf22', value: 'Brother', label: 'Relationship', mandatory: 'yes' },
+          { key: 'udf23', value: '9876543210', label: 'Contact Number', mandatory: 'yes' },
+          { key: 'udf24', value: true, label: 'Show Filled Details', mandatory: 'yes' },
+          { key: 'udf25', value: true, label: 'Accept T&C', mandatory: 'yes' }
+        ]
+      },
+      {
+        id: 'c2',
+        fields: [
+          { key: 'udf1', value: 'Arjun Kumar', label: 'Full Name', mandatory: 'yes' },
+          { key: 'udf2', value: '1998-05-10', label: 'Date of Birth', mandatory: 'yes' },
+          { key: 'udf3', value: 'Male', label: 'Gender', mandatory: 'yes' },
+          { key: 'udf4', value: '9876543210', label: 'Mobile Number', mandatory: 'yes' },
+          { key: 'udf5', value: 'arjun.k@example.com', label: 'Email ID', mandatory: 'yes' },
+          { key: 'udf6', value: 'Sudarshan', label: "Father's Name", mandatory: 'no' },
+          { key: 'udf7', value: 'BTM Layout', label: 'Permanent Address', mandatory: 'yes' },
+          { key: 'udf8', value: 'Bengaluru', label: 'City', mandatory: 'yes' },
+          { key: 'udf9', value: 'Karnataka', label: 'State', mandatory: 'yes' },
+          { key: 'udf10', value: '560076', label: 'Pincode', mandatory: 'yes' },
+          { key: 'udf11', value: 'PAN Card', label: 'ID Type', mandatory: 'yes' },
+          { key: 'udf12', value: 'ABCDE1234F', label: 'ID Number', mandatory: 'yes' },
+          { key: 'udf13', value: 'C:\\fakepath\\id2.pdf', label: 'Upload ID Proof', mandatory: 'yes' },
+          { key: 'udf14', value: 'C:\\fakepath\\photo2.jpg', label: 'Passport Photo', mandatory: 'no' },
+          { key: 'udf15', value: '2025-10-01', label: 'Check-in Date', mandatory: 'yes' },
+          { key: 'udf16', value: 'Double', label: 'Room Sharing Type', mandatory: 'yes' },
+          { key: 'udf17', value: '202', label: 'Room Numbers', mandatory: 'yes' },
+          { key: 'udf18', value: '2', label: 'Bed Numbers', mandatory: 'no' },
+          { key: 'udf19', value: 15000, label: 'Advance Paid So Far', currency: 'INR', mandatory: 'no' },
+          { key: 'udf20', value: 10000, label: 'Rent Paid So Far', currency: 'INR', mandatory: 'no' },
+          { key: 'udf21', value: 'Karthik', label: 'Emergency Contact Name', mandatory: 'yes' },
+          { key: 'udf22', value: 'Friend', label: 'Relationship', mandatory: 'yes' },
+          { key: 'udf23', value: '9123456780', label: 'Contact Number', mandatory: 'yes' },
+          { key: 'udf24', value: true, label: 'Show Filled Details', mandatory: 'yes' },
+          { key: 'udf25', value: true, label: 'Accept T&C', mandatory: 'yes' }
+        ]
+      },
+      {
+        id: 'c3',
+        fields: [
+          { key: 'udf1', value: 'Sneha Rao', label: 'Full Name', mandatory: 'yes' },
+          { key: 'udf2', value: '2001-02-20', label: 'Date of Birth', mandatory: 'yes' },
+          { key: 'udf3', value: 'Female', label: 'Gender', mandatory: 'yes' },
+          { key: 'udf4', value: '9988776655', label: 'Mobile Number', mandatory: 'yes' },
+          { key: 'udf5', value: 'sneha.rao@example.com', label: 'Email ID', mandatory: 'yes' },
+          { key: 'udf6', value: 'Raghav Rao', label: "Father's Name", mandatory: 'no' },
+          { key: 'udf7', value: 'Pune Road', label: 'Permanent Address', mandatory: 'yes' },
+          { key: 'udf8', value: 'Pune', label: 'City', mandatory: 'yes' },
+          { key: 'udf9', value: 'Maharashtra', label: 'State', mandatory: 'yes' },
+          { key: 'udf10', value: '411001', label: 'Pincode', mandatory: 'yes' },
+          { key: 'udf11', value: 'Driving License', label: 'ID Type', mandatory: 'yes' },
+          { key: 'udf12', value: 'DL-98231-112', label: 'ID Number', mandatory: 'yes' },
+          { key: 'udf13', value: 'C:\\fakepath\\id3.jpg', label: 'Upload ID Proof', mandatory: 'yes' },
+          { key: 'udf14', value: 'C:\\fakepath\\photo3.jpg', label: 'Passport Photo', mandatory: 'no' },
+          { key: 'udf15', value: '2025-09-12', label: 'Check-in Date', mandatory: 'yes' },
+          { key: 'udf16', value: 'Triple', label: 'Room Sharing Type', mandatory: 'yes' },
+          { key: 'udf17', value: '305', label: 'Room Numbers', mandatory: 'yes' },
+          { key: 'udf18', value: '3', label: 'Bed Numbers', mandatory: 'no' },
+          { key: 'udf19', value: 9000, label: 'Advance Paid So Far', currency: 'INR', mandatory: 'no' },
+          { key: 'udf20', value: 7500, label: 'Rent Paid So Far', currency: 'INR', mandatory: 'no' },
+          { key: 'udf21', value: 'Megha', label: 'Emergency Contact Name', mandatory: 'yes' },
+          { key: 'udf22', value: 'Sister', label: 'Relationship', mandatory: 'yes' },
+          { key: 'udf23', value: '9876501234', label: 'Contact Number', mandatory: 'yes' },
+          { key: 'udf24', value: true, label: 'Show Filled Details', mandatory: 'yes' },
+          { key: 'udf25', value: true, label: 'Accept T&C', mandatory: 'yes' }
+        ]
+      },
+      {
+        id: 'c4',
+        fields: [
+          { key: 'udf1', value: 'Rahul Sharma', mandatory: 'yes', label: 'Full Name' },
+          { key: 'udf2', value: '1995-01-12', label: 'Date of Birth', mandatory: 'yes' },
+          { key: 'udf3', value: 'Male', label: 'Gender', mandatory: 'yes' },
+          { key: 'udf4', value: '9911223344', label: 'Mobile Number', mandatory: 'yes' },
+          { key: 'udf5', value: 'rahul.sharma@example.com', label: 'Email ID', mandatory: 'yes' },
+          { key: 'udf7', value: 'Delhi Cantt', label: 'Permanent Address', mandatory: 'yes' },
+          { key: 'udf8', value: 'New Delhi', label: 'City', mandatory: 'yes' },
+          { key: 'udf9', value: 'Delhi', label: 'State', mandatory: 'yes' }
+        ],
+      },
+      {
+        id: 'c5',
+        fields: [
+          { key: 'udf1', value: 'Ria Mehta', label: 'Full Name', mandatory: 'yes' },
+          { key: 'udf2', value: '2000-10-15', label: 'Date of Birth', mandatory: 'yes' },
+          { key: 'udf3', value: 'Female', label: 'Gender', mandatory: 'yes' },
+          { key: 'udf4', value: '9192929192', label: 'Mobile Number', mandatory: 'yes' },
+          { key: 'udf5', value: 'ria.mehta@example.com', label: 'Email ID', mandatory: 'yes' },
+          { key: 'udf7', value: 'Juhu Lane', label: 'Permanent Address', mandatory: 'yes' },
+          { key: 'udf8', value: 'Mumbai', label: 'City', mandatory: 'yes' },
+          { key: 'udf9', value: 'Maharashtra', label: 'State', mandatory: 'yes' }
+        ],
+      },
+      {
+        id: 'c6',
+        fields: [
+          { key: 'udf1', value: 'Vishal Patil', label: 'Full Name', mandatory: 'yes' },
+          { key: 'udf2', value: '1999-06-03', label: 'Date of Birth', mandatory: 'yes' },
+          { key: 'udf3', value: 'Male', label: 'Gender', mandatory: 'yes' },
+          { key: 'udf4', value: '9988442211', label: 'Mobile Number', mandatory: 'yes' },
+          { key: 'udf5', value: 'vishal.patil@example.com', label: 'Email ID', mandatory: 'yes' },
+          { key: 'udf7', value: 'Camp Area', label: 'Permanent Address', mandatory: 'yes' },
+          { key: 'udf8', value: 'Pune', label: 'City', mandatory: 'yes' },
+          { key: 'udf9', value: 'Maharashtra', label: 'State', mandatory: 'yes' }
+        ],
+      },
+      {
+        id: 'c7',
+        fields: [
+          { key: 'udf1', value: 'Ananya Pillai', label: 'Full Name', mandatory: 'yes' },
+          { key: 'udf2', value: '2002-03-22', label: 'Date of Birth', mandatory: 'yes' },
+          { key: 'udf3', value: 'Female', label: 'Gender', mandatory: 'yes' },
+          { key: 'udf4', value: '9080765544', label: 'Medical Number', mandatory: 'yes' },
+          { key: 'udf5', value: 'ananya.pillai@example.com', label: 'Email ID', mandatory: 'yes' },
+          { key: 'udf7', value: 'MG Road', label: 'Permanent Address', mandatory: 'yes' },
+          { key: 'udf8', value: 'Kochi', label: 'City', mandatory: 'yes' },
+          { key: 'udf9', value: 'Kerala', label: 'State', mandatory: 'yes' }
+        ],
+      },
+      {
+        id: 'c8',
+        fields: [
+          { key: 'udf1', value: 'Rohan Singh', label: 'Full Name', mandatory: 'yes' },
+          { key: 'udf2', value: '1997-09-10', label: 'Date of Birth', mandatory: 'yes' },
+          { key: 'udf3', value: 'Male', label: 'Gender', mandatory: 'yes' },
+          { key: 'udf4', value: '9090908080', label: 'Mobile Number', mandatory: 'yes' },
+          { key: 'udf5', value: 'rohan.singh@example.com', label: 'Email ID', mandatory: 'yes' },
+          { key: 'udf7', value: 'Sector 22', label: 'Permanent Address', mandatory: 'yes' },
+          { key: 'udf8', value: 'Chandigarh', label: 'City', mandatory: 'yes' },
+          { key: 'udf9', value: 'Punjab', label: 'State', mandatory: 'yes' }
+        ],
+      },
+      {
+        id: 'c9',
+        fields: [
+          { key: 'udf1', value: 'Tanvi Desai', label: 'Full Name', mandatory: 'yes' },
+          { key: 'udf2', value: '2001-12-11', label: 'Date of Birth', mandatory: 'yes' },
+          { key: 'udf3', value: 'Female', label: 'Gender', mandatory: 'yes' },
+          { key: 'udf4', value: '9797976767', label: 'Mobile Number', mandatory: 'yes' },
+          { key: 'udf5', value: 'tanvi.desai@example.com', label: 'Email ID', mandatory: 'yes' },
+          { key: 'udf7', value: 'CG Road', label: 'Permanent Address', mandatory: 'yes' },
+          { key: 'udf8', value: 'Ahmedabad', label: 'City', mandatory: 'yes' },
+          { key: 'udf9', value: 'Gujarat', label: 'State', mandatory: 'yes' }
+        ],
+      },
+      {
+        id: 'c10',
+        fields: [
+          { key: 'udf1', value: 'Karan Verma', label: 'Full Name', mandatory: 'yes' },
+          { key: 'udf2', value: '1994-04-18', label: 'Date of Birth', mandatory: 'yes' },
+          { key: 'udf3', value: 'Male', label: 'Gender', mandatory: 'yes' },
+          { key: 'udf4', value: '9099665544', label: 'Mobile Number', mandatory: 'yes' },
+          { key: 'udf5', value: 'karan.verma@example.com', label: 'Email ID', mandatory: 'yes' },
+          { key: 'udf7', value: 'Civil Lines', label: 'Permanent Address', mandatory: 'yes' },
+          { key: 'udf8', value: 'Jaipur', label: 'City', mandatory: 'yes' },
+          { key: 'udf9', value: 'Rajasthan', label: 'State', mandatory: 'yes' }
+        ],
+      }
     ];
 
-    this.products = jsonResponse.map((p, i) => ({ ...p, id: p.id ?? `p${i + 1}` }));
+    const src = this.data && this.data.length ? this.data : sample;
 
-    // If parent passed @Input() data, prefer it
-    if (this.data && this.data.length) {
-      this.products = this.data.map((d, i) => ({ ...d, id: d.id ?? `p${i + 1}` }));
+    this.records = src.map((rec, i) => ({
+      id: rec.id ?? `rec${i + 1}`,
+      fields: rec.fields
+    }));
+
+    // Build union of all mandatory fields
+    const allMandatory: ColumnDef[] = [];
+
+    for (const rec of this.records) {
+      for (const f of rec.fields) {
+        const isMand =
+          f.mandatory === true ||
+          String(f.mandatory).toLowerCase() === 'yes';
+
+        if (isMand && !allMandatory.some(x => x.key === f.key)) {
+          allMandatory.push({
+            key: f.key,
+            label: f.label ?? f.key,
+            mandatory: true,
+            currency: f.currency
+          });
+        }
+      }
     }
+
+    // Use only first 6 mandatory fields in grid
+    this.columns = allMandatory.slice(0, 6);
 
     this.cdr.detectChanges();
   }
 
-  /* ----------------- Utilities: search / sort / pagination ----------------- */
+  getValue(record: CustomerRecordInput, key: string): any {
+    const f = record.fields.find(x => x.key === key);
+    return f ? f.value : null;
+  }
 
-  get filteredProducts(): Product[] {
-    let arr = [...this.products];
-
-    // global search across key fields
+  get filteredRecords(): CustomerRecordInput[] {
+    let arr = [...this.records];
     const q = (this.searchText || '').trim().toLowerCase();
+
     if (q) {
-      arr = arr.filter(p =>
-        (p.productName || '').toLowerCase().includes(q) ||
-        (p.productCode || '').toLowerCase().includes(q) ||
-        (p.hsnCode || '').toLowerCase().includes(q) ||
-        String(p.salePrice).includes(q)
+      arr = arr.filter(rec =>
+        this.columns.some(col => {
+          const v = this.getValue(rec, col.key);
+          return (
+            (col.label || '').toLowerCase().includes(q) ||
+            String(v ?? '').toLowerCase().includes(q)
+          );
+        })
       );
     }
 
-    // sorting
     if (this.sortColumn) {
-      const col = this.sortColumn;
       arr.sort((a, b) => {
-        const A = (a[col] ?? '') as any;
-        const B = (b[col] ?? '') as any;
-        if (typeof A === 'number' && typeof B === 'number') {
-          return this.sortDirection === 'asc' ? A - B : B - A;
-        }
-        const sA = String(A).toLowerCase();
-        const sB = String(B).toLowerCase();
-        if (sA < sB) return this.sortDirection === 'asc' ? -1 : 1;
-        if (sA > sB) return this.sortDirection === 'asc' ? 1 : -1;
+        const A =
+          this.sortColumn === 'id'
+            ? a.id ?? ''
+            : this.getValue(a, this.sortColumn) ?? '';
+        const B =
+          this.sortColumn === 'id'
+            ? b.id ?? ''
+            : this.getValue(b, this.sortColumn) ?? '';
+
+        const vA = typeof A === 'number' ? A : String(A).toLowerCase();
+        const vB = typeof B === 'number' ? B : String(B).toLowerCase();
+
+        if (vA < vB) return this.sortDirection === 'asc' ? -1 : 1;
+        if (vA > vB) return this.sortDirection === 'asc' ? 1 : -1;
         return 0;
       });
     }
@@ -98,115 +309,107 @@ export class DynamicGrid implements OnInit {
     return arr;
   }
 
-  toggleSort(column: keyof Product) {
-    if (this.sortColumn === column) {
+  toggleSort(col: string) {
+    if (this.sortColumn === col) {
       this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
     } else {
-      this.sortColumn = column;
+      this.sortColumn = col;
       this.sortDirection = 'asc';
     }
   }
 
-  trackById(_: number, item: Product) {
+  trackByRecord(_: number, item: CustomerRecordInput) {
     return item.id;
   }
 
-  /* ----------------- Actions ----------------- */
+  confirmDelete(id?: string) {
+    if (!id) return;
 
-  // route to the form to add a record
-  goToAddForm() {
-    this.router.navigate(['/home/container/dynamic-form'], { queryParams: { mode: 'add' } });
-  }
-
-  // optional: route to the form to edit a product (pass id)
-  goToEditForm(product: Product) {
-    this.router.navigate(['/home/container/dynamic-form'], { queryParams: { mode: 'edit', id: product.id } });
-  }
-
-  editProduct(product: Product) {
-    // fallback quick-edit (keeps existing prompt-based edit)
-    const name = prompt('Product name:', product.productName);
-    if (name === null) return;
-    const code = prompt('Product code:', product.productCode) ?? product.productCode;
-    const hsn = prompt('HSN code:', product.hsnCode) ?? product.hsnCode;
-    const priceStr = prompt('Sale price:', String(product.salePrice)) ?? String(product.salePrice);
-    const price = parseFloat(priceStr) || product.salePrice;
-
-    product.productName = name;
-    product.productCode = code;
-    product.hsnCode = hsn;
-    product.salePrice = price;
-    product.barcode = code;
-    this.cdr.detectChanges();
-    Swal.fire({ icon: 'success', title: 'Updated', text: `${product.productName} updated.` });
-  }
-
-  confirmDelete(id: string) {
     Swal.fire({
-      title: 'Are you sure?',
-      text: 'Do you really want to delete this product?',
+      title: 'Delete record?',
+      text: 'This will remove the record locally.',
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonText: 'Yes, delete it!'
-    }).then(result => {
-      if (result.isConfirmed) {
-        this.products = this.products.filter(p => p.id !== id);
+    }).then(res => {
+      if (res.isConfirmed) {
+        this.records = this.records.filter(r => r.id !== id);
         this.cdr.detectChanges();
-        Swal.fire({ icon: 'success', title: 'Deleted', timer: 1200, showConfirmButton: false });
+        Swal.fire({
+          icon: 'success',
+          title: 'Deleted',
+          timer: 1000,
+          showConfirmButton: false,
+        });
       }
     });
   }
 
+  goToEditForm(record: CustomerRecordInput) {
+    // set record in shared service (so form can pick it up even on refresh fallback)
+    this.editSvc.set(record);
+    this.router.navigate(['/home/container/dynamic-form'], {
+      state: { record }, // also pass via navigation state
+      queryParams: { mode: 'edit', id: record.id }
+    });
+  }
+
+  goToAddForm() {
+    this.editSvc.set(null);
+    this.router.navigate(['/home/container/dynamic-form'], {
+      queryParams: { mode: 'add' },
+    });
+  }
+
   exportCSV() {
-    const rows = [['S.No', 'Product Name', 'Product Code', 'HSN Code', 'Sale Price']];
-    this.products.forEach((p, i) => rows.push([String(i + 1), p.productName, p.productCode, p.hsnCode, String(p.salePrice)]));
-    const csv = rows.map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const header = ['ID', ...this.columns.map(c => c.label)];
+    const rows: string[] = [];
+
+    rows.push(header.join(','));
+
+    this.filteredRecords.forEach(rec => {
+      const row = [
+        rec.id ?? '',
+        ...this.columns.map(col => {
+          const v = this.getValue(rec, col.key);
+          return `"${String(v ?? '').replace(/"/g, '""')}"`;
+        }),
+      ];
+      rows.push(row.join(','));
+    });
+
+    const csv = rows.join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
+
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'products.csv';
+    a.download = 'customers.csv';
     a.click();
     URL.revokeObjectURL(url);
   }
 
-  printBarcode(product: Product) {
-    const content = `
-      <html><head><title>Barcode - ${product.productName}</title>
-      <style>body{font-family:Arial;padding:20px;text-align:center}.barcode{font-size:34px;letter-spacing:6px;margin-top:24px;font-family:monospace}.meta{margin-top:12px;color:#444}</style>
-      </head>
-      <body>
-        <h2>${product.productName}</h2>
-        <div class="barcode">${(product.barcode || product.productCode || '---')}</div>
-        <div class="meta">Code: ${product.productCode} &nbsp;&nbsp; Price: ₹${product.salePrice}</div>
-        <script>window.onload=()=>window.print();</script>
-      </body></html>`;
-    const w = window.open('', '_blank', 'width=500,height=400');
-    if (!w) { alert('Popup blocked - allow popups for this site to print barcode'); return; }
-    w.document.open();
-    w.document.write(content);
-    w.document.close();
-  }
-
-  printAll() {
-    const tableHtml = this.products.map((p, i) => `<tr><td>${i + 1}</td><td>${p.productName}</td><td>${p.productCode}</td><td>${p.hsnCode}</td><td>₹${p.salePrice}</td></tr>`).join('');
-    const content = `<html><head><title>Products</title><style>table{width:100%;border-collapse:collapse}td,th{border:1px solid #ddd;padding:8px;text-align:left}</style></head><body><h3>Products</h3><table><thead><tr><th>S.No</th><th>Product Name</th><th>Product Code</th><th>HSN</th><th>Sale Price</th></tr></thead><tbody>${tableHtml}</tbody></table><script>window.onload=()=>setTimeout(()=>window.print(),100);</script></body></html>`;
-    const w = window.open('', '_blank', 'width=900,height=700');
-    if (!w) { alert('Popup blocked - allow popups to print'); return; }
-    w.document.open();
-    w.document.write(content);
-    w.document.close();
-  }
-
-  openFilters() {
-    Swal.fire({ title: 'Filters', text: 'Add advanced filter UI here (not implemented).', icon: 'info' });
-  }
-
   showRangeText() {
-    const total = this.filteredProducts.length;
-    if (total === 0) return '0 to 0 of 0';
+    const total = this.filteredRecords.length;
+    if (!total) return '0 to 0 of 0';
+
     const start = (this.pPage - 1) * this.itemsPerPage + 1;
     const end = Math.min(this.pPage * this.itemsPerPage, total);
     return `${start} to ${end} of ${total}`;
   }
+
+  isObject(v: any) {
+    return v !== null && typeof v === 'object';
+  }
+
+
+  /** Open form in view (read-only) mode. Pass the full record in navigation state. */
+  goToViewForm(record: CustomerRecordInput) {
+    // store record in shared service so the dynamic form can pick it up
+    this.editSvc.set(record);
+    this.router.navigate(['/home/container/dynamic-form'], {
+      state: { record },
+      queryParams: { mode: 'view', id: record.id }
+    });
+  }
+
 }

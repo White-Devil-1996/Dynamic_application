@@ -1,60 +1,132 @@
-<form class="form" [formGroup]="profileForm" (ngSubmit)="onSubmit()">
+<form class="form" [formGroup]="profileForm" (ngSubmit)="onSubmit()" (keydown.enter)="$event.preventDefault()">
 
-                        @for (section of onboardingForm; track section.title) {
-                        <div class="section-block">
-                            <h4 class="box-title mb-0" style="color: var(--primarycolor);">
-                                {{ section.title }}
-                            </h4>
-                            <hr class="my-15" />
-                            <div class="row"> @for (field of section.fields; track field) {
-                                <div class="col-sm-12  col-md-6 col-lg-3  mb-20">
-                                    <div class="form-group">
-                                        @if (typeof field === 'string') {
-                                        <label *ngIf="getInputType(field) !== 'checkbox'"
-                                            [for]="sanitizeControlName(field)" class="required">
-                                            {{ field }}
-                                        </label>
-                                        @if (getInputType(field) === 'checkbox') { <div class="form-check"> <input type="checkbox" class="form-check-input" [id]="sanitizeControlName(field)" [formControlName]="sanitizeControlName(field)" [ngClass]="{ 'is-invalid': profileForm.get(sanitizeControlName(field))?.touched && profileForm.get(sanitizeControlName(field))?.invalid }" />
-                                            <label class="form-check-label" [for]="sanitizeControlName(field)">
-                                                {{ field }}
-                                            </label>
-                                        </div>
-                                        } @else {
-                                        <input [type]="getInputType(field)" class="form-control" [id]="sanitizeControlName(field)" [formControlName]="sanitizeControlName(field)" [placeholder]="field" [ngClass]="{ 'is-invalid': profileForm.get(sanitizeControlName(field))?.touched && profileForm.get(sanitizeControlName(field))?.invalid }" />
-                                        }
+  <!-- GLOBAL COMMON CURRENCY SELECT -->
+  <div class="mb-15 d-flex align-items-center" style="gap:12px;">
+    <label class="mb-0">Common Currency</label>
+    <select class="form-select" formControlName="common_currency" style="width:100px;" [disabled]="readonly"
+      (keydown.enter)="focusNext($event)"
+      [ngClass]="{ 'is-invalid': profileForm.get('common_currency')?.touched && profileForm.get('common_currency')?.invalid }">
+      <option *ngFor="let c of currencies" [value]="c">{{ c }}</option>
+    </select>
+    <small class="text-muted">Changes all amount fields</small>
+  </div>
 
-                                        <div class="text-danger" *ngIf="profileForm.get(sanitizeControlName(field))?.touched && profileForm.get(sanitizeControlName(field))?.hasError('required')"> {{ field }} is required </div>
-                                        }
-                                        @else if (field?.type === 'dropdown') {
-                                        <label [for]="sanitizeControlName(field.label)" class="required">{{
-                                            field.label }}</label>
-                                        <select class="form-control" [id]="sanitizeControlName(field.label)" [formControlName]="sanitizeControlName(field.label)" [ngClass]="{ 'is-invalid': profileForm.get(sanitizeControlName(field.label))?.touched && profileForm.get(sanitizeControlName(field.label))?.invalid }">
-                                            <option value="">Select {{ field.label }}</option>
-                                            @for (option of field.options; track option) {
-                                            <option [value]="option">{{ option }}</option>
-                                            }
-                                        </select>
-                                        <div class="text-danger" *ngIf="profileForm.get(sanitizeControlName(field.label))?.touched && profileForm.get(sanitizeControlName(field.label))?.hasError('required')">
-                                            {{ field.label }} is required
-                                        </div>
-                                        }
+  <!-- Sections -->
+  <div *ngFor="let section of onboardingForm; let sIndex = index">
+    <div class="section-block">
+      <h4 class="box-title mb-0" style="color: var(--grey);">{{ section.title }}</h4>
+      <hr class="my-15" />
+      <div class="row">
+        <div class="col-sm-12 col-md-6 col-lg-3 mb-20" *ngFor="let field of section.fields; let fIndex = index">
+          <div class="form-group">
 
-                                    </div>
-                                </div>
-                                }
+            <!-- DROPDOWN: ng-select implementation -->
+            <ng-container *ngIf="field.type === 'dropdown'">
+              <label [for]="sanitizeControlName(field)" [class.required]="field.mandatory">{{ field.label }}</label>
 
-                            </div>
-                        </div>
-                        }
-                        <div class="box-footer d-flex justify-content-center my-25" *ngIf="!readonly">
-                            <button type="submit" class="btn btn-primary" [disabled]="profileForm.invalid">
-                                <i class="ti-save-alt"></i> Save
-                            </button>
-                            <button type="button" class="btn btn-warning ms-3" (click)="resetForm()">
-                                <i class="ti-trash"></i> Reset
-                            </button>
-                            <button type="button" class="btn btn-warning ms-3" (click)="goToDashboard()">
-                                <i class="ti-trash"></i> Close
-                            </button>
-                        </div>
-                    </form>
+              <ng-select class="ng-select-custom" [items]="field.options || []" [searchable]="true"
+                [clearable]="false" [closeOnSelect]="true" [formControlName]="sanitizeControlName(field)"
+                [id]="sanitizeControlName(field)" [disabled]="readonly" (keydown.enter)="focusNext($event)"
+                [ngClass]="{ 'is-invalid': profileForm.get(sanitizeControlName(field))?.touched && profileForm.get(sanitizeControlName(field))?.invalid }"
+                placeholder="Select {{ field.label }}" >
+              </ng-select>
+
+              <div class="text-danger"
+                *ngIf="profileForm.get(sanitizeControlName(field))?.touched && profileForm.get(sanitizeControlName(field))?.invalid">
+                <div *ngIf="profileForm.get(sanitizeControlName(field))?.hasError('required')">{{ field.label }} is
+                  required</div>
+                <div *ngIf="profileForm.get(sanitizeControlName(field))?.hasError('pattern')">{{ field.label }} format
+                  is invalid</div>
+              </div>
+            </ng-container>
+
+            <!-- NON-DROPDOWN -->
+            <ng-container *ngIf="field.type !== 'dropdown'">
+              <!-- CHECKBOX -->
+              <div *ngIf="getInputType(field) === 'checkbox'" class="form-check">
+                <input type="checkbox" class="form-check-input" [id]="sanitizeControlName(field)"
+                  [formControlName]="sanitizeControlName(field)" [disabled]="readonly"
+                  (keydown.enter)="focusNext($event)"
+                  [ngClass]="{ 'is-invalid': profileForm.get(sanitizeControlName(field))?.touched && profileForm.get(sanitizeControlName(field))?.invalid }" />
+                <label class="form-check-label" [for]="sanitizeControlName(field)" [class.required]="field.mandatory">
+                  {{ field.label }}
+                </label>
+              </div>
+
+              <!-- OTHER INPUTS -->
+              <ng-container *ngIf="getInputType(field) !== 'checkbox'">
+                <label [for]="sanitizeControlName(field)" [class.required]="field.mandatory">{{ field.label }}</label>
+
+                <!-- AMOUNT FIELDS -->
+                <div *ngIf="isAmountField(field)" class="d-flex amount-block" style="gap:8px; align-items:flex-start;">
+                  <div class="currency-wrap">
+                    <select class="currency-select" [id]="sanitizeControlName(field) + '_currency'"
+                      [formControlName]="sanitizeControlName(field) + '_currency'" [disabled]="readonly"
+                      (keydown.enter)="focusNext($event)"
+                      [ngClass]="{ 'is-invalid': profileForm.get(sanitizeControlName(field) + '_currency')?.touched && profileForm.get(sanitizeControlName(field) + '_currency')?.invalid }">
+                      <option *ngFor="let c of currencies" [value]="c">{{ c }}</option>
+                    </select>
+                    <small class="text-muted d-block mt-1 small-note">Currency</small>
+                  </div>
+
+                  <div class="amount-wrap" style="flex:1;">
+                    <input type="text" class="form-control" [id]="sanitizeControlName(field)"
+                      [formControlName]="sanitizeControlName(field)" [placeholder]="field.label"
+                      [attr.pattern]="field?.regex ? field?.regex : null"
+                      (input)="onAmountInput(sanitizeControlName(field))"
+                      (blur)="onAmountBlur(sanitizeControlName(field))" [disabled]="readonly"
+                      (keydown.enter)="focusNext($event)"
+                      [ngClass]="{ 'is-invalid': profileForm.get(sanitizeControlName(field))?.touched && profileForm.get(sanitizeControlName(field))?.invalid }" />
+                    <small class="text-muted small-note">Enter amount</small>
+
+                    <div class="text-muted" style="margin-top:6px; font-style:italic; font-size:0.9rem;">
+                      {{ getAmountInWords(sanitizeControlName(field)) }}
+                    </div>
+                  </div>
+
+                  <div class="base-wrap" style="width:160px;">
+                    <input type="text" class="form-control" readonly
+                      [value]="getConvertedLabelFor(sanitizeControlName(field))" />
+                    <small class="text-muted d-block mt-1 small-note">Base: {{ baseCurrency }}</small>
+
+                    <div class="text-muted" style="margin-top:6px; font-style:italic; font-size:0.9rem;">
+                      {{ getBaseAmountInWords(sanitizeControlName(field)) }}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- OTHER NON-AMOUNT -->
+                <ng-container *ngIf="!isAmountField(field)">
+                  <input [type]="getInputType(field)" class="form-control" [id]="sanitizeControlName(field)"
+                    [formControlName]="sanitizeControlName(field)" [placeholder]="field.label"
+                    [attr.pattern]="field?.regex ? field?.regex : null" [disabled]="readonly"
+                    (keydown.enter)="focusNext($event)"
+                    [ngClass]="{ 'is-invalid': profileForm.get(sanitizeControlName(field))?.touched && profileForm.get(sanitizeControlName(field))?.invalid }" />
+                </ng-container>
+
+                <!-- validation messages -->
+                <div class="text-danger"
+                  *ngIf="profileForm.get(sanitizeControlName(field))?.touched && profileForm.get(sanitizeControlName(field))?.invalid">
+                  <div *ngIf="profileForm.get(sanitizeControlName(field))?.hasError('required')">{{ field.label }} is
+                    required</div>
+                  <div *ngIf="profileForm.get(sanitizeControlName(field))?.hasError('email')">Please enter a valid email
+                    address</div>
+                  <div *ngIf="profileForm.get(sanitizeControlName(field))?.hasError('pattern')">{{ field.label }} format
+                    is invalid</div>
+                </div>
+              </ng-container>
+            </ng-container>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTION BUTTONS -->
+  <div class="box-footer d-flex justify-content-center my-25" *ngIf="!readonly">
+    <button type="submit" class="btn btn-primary" [disabled]="profileForm.invalid">Save</button>
+    <button type="button" class="btn btn-warning ms-3" (click)="resetForm()">Reset</button>
+    <button type="button" class="btn btn-secondary ms-3" (click)="goToGrid()">Close</button>
+  </div>
+</form>

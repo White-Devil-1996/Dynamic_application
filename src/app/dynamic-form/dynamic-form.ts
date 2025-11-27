@@ -1,218 +1,875 @@
-// import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Component, Inject, Input, OnInit, Optional } from '@angular/core';
-import { FormGroup, FormControl, Validators, ReactiveFormsModule, FormsModule, FormBuilder } from '@angular/forms';
+import { Component, Input, OnInit, OnDestroy } from '@angular/core';
+import {
+  FormGroup,
+  FormControl,
+  Validators,
+  FormBuilder,
+  ReactiveFormsModule,
+  FormsModule
+} from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-// import { Label } from '../label/label';
-import { MatDialogRef,MAT_DIALOG_DATA } from '@angular/material/dialog';
 import Swal from 'sweetalert2';
 import { CommonModule } from '@angular/common';
+import { Subscription, lastValueFrom } from 'rxjs';
+import { NgSelectModule } from '@ng-select/ng-select';
+import { EditRecordService } from '../core/services/edit-record.service';
 
+/**
+ * Field and Section typing so Angular template type-checker knows `regex` may exist.
+ */
+interface Field {
+  id?: string;
+  label: string;
+  mandatory?: boolean;
+  type?: string;
+  options?: string[];
+  regex?: string;
+  // allow extra props without strict errors
+  [key: string]: any;
+}
 
+interface Section {
+  title: string;
+  description?: string;
+  fields: Field[];
+}
 
 @Component({
   selector: 'app-dynamic-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, FormsModule, RouterModule],
-templateUrl: './dynamic-form.html',
-  styleUrl: './dynamic-form.css',
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterModule, NgSelectModule],
+  templateUrl: './dynamic-form.html',
+  styleUrls: ['./dynamic-form.css'],
 })
-export class DynamicForm implements OnInit {
-form!: FormGroup;
-  mode: 'add' | 'edit' = 'add';
+export class DynamicForm implements OnInit, OnDestroy {
+  form!: FormGroup;
+  mode: 'add' | 'edit' | 'view' = 'add';
   editingId?: string;
   returnUrl = '/home/container/dynamic-grid';
 
-  constructor(private http: HttpClient,private fb: FormBuilder, private router: Router, private ar: ActivatedRoute) {}
+  private valueSubs: Subscription[] = [];
+
+  constructor(
+    private http: HttpClient,
+    private fb: FormBuilder,
+    private router: Router,
+    private ar: ActivatedRoute,
+    private editSvc: EditRecordService
+  ) { }
+
   menuLabel = 'Customer Onboarding';
-   @Input() text: string = '';
-   @Input() customerDatafromgrid: any;
-    @Input() readonly = false; 
-    // form: any = {};
- 
+  @Input() text: string = '';
+  @Input() customerDatafromgrid: any;
+  @Input() readonly = false;
 
+  currencies = ['INR', 'USD', 'EUR', 'GBP', 'AED'];
+  baseCurrency = 'INR';
+  exchangeRates: { [currency: string]: number } = { INR: 1, USD: 82, EUR: 90, GBP: 105, AED: 22 };
 
+  // room sharing -> monthly rent mapping (INR)
+  sharingRates: { [k: string]: number } = {
+    'Single': 24000,
+    'Double': 12000,
+    'Triple': 9000,
+    'Four Sharing Top': 7000,
+    'Four Sharing Bottom': 7500
+  };
 
-
-  onboardingForm = [
-    // { title: "Personal Information", fields: ["Full Name", "Date of Birth", { label: 'Gender', type: 'dropdown', options: ['Male', 'Female', 'Other'] }, "Mobile Number", "Alternate Number", "Email ID", "Father's / Guardian’s Name"] },
-        { title: "Personal Information", fields: ["Full Name", "Date of Birth", { label: 'Gender', type: 'dropdown', options: ['Male', 'Female', 'Other'] }, "Mobile Number", "Email ID", "Father's / Guardian’s Name"] },
-    // { title: "Address Details", fields: ["Permanent Address", "Current Address",{ label: 'City', type: 'dropdown', options:   [ 'Chennai', 'Coimbatore', 'Madurai', 'Tiruchirappalli', 'Salem', 'Erode', 'Tirunelveli', 'Vellore', 'Thoothukudi', 'Dindigul', 'Thanjavur', 'Cuddalore', 'Kanchipuram', 'Nagercoil', 'Karur', 'Tiruppur', 'Virudhunagar', 'Nagapattinam', 'Sivakasi', 'Ambur', 'Rajapalayam', 'Ariyalur', 'Namakkal', 'Perambalur', 'Pudukkottai', 'Krishnagiri', 'Dharmapuri', 'Theni', 'Ramanathapuram', 'Sivagangai', 'Tenkasi', 'Ranipet', 'Tirupattur', 'Viluppuram', 'Mayiladuthurai' ] }, { label: 'State', type: 'dropdown', options:     [ 'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal' ] }, "Pincode"] },
-    { title: "Address Details", fields: ["Permanent Address",{ label: 'City', type: 'dropdown', options:   [ 'Chennai', 'Coimbatore', 'Madurai', 'Tiruchirappalli', 'Salem', 'Erode', 'Tirunelveli', 'Vellore', 'Thoothukudi', 'Dindigul', 'Thanjavur', 'Cuddalore', 'Kanchipuram', 'Nagercoil', 'Karur', 'Tiruppur', 'Virudhunagar', 'Nagapattinam', 'Sivakasi', 'Ambur', 'Rajapalayam', 'Ariyalur', 'Namakkal', 'Perambalur', 'Pudukkottai', 'Krishnagiri', 'Dharmapuri', 'Theni', 'Ramanathapuram', 'Sivagangai', 'Tenkasi', 'Ranipet', 'Tirupattur', 'Viluppuram', 'Mayiladuthurai' ] }, { label: 'State', type: 'dropdown', options:     [ 'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal' ] }, "Pincode"] },
-    { title: "ID Verification", description: "Collect identity proof and verify authenticity.", fields: [{ label: 'ID Type', type: 'dropdown', options: [ 'Aadhaar Card', 'Passport', 'Voter ID', 'PAN Card', 'Driving License', 'Ration Card', 'NREGA Job Card', 'Government Employee ID', 'Student ID Card', 'Senior Citizen ID', 'Bank Passbook with Photo', 'Armed Forces ID Card' ] }, "ID Number", "Upload ID Proof (PDF/Image)", "Upload Passport Size Photo"] },
-    // { title: "Professional / Academic Details", fields: [{ label: 'Occupation', type: 'dropdown', options: [ 'Student', 'Working'] }, "Company / College Name", "Work / Study Address", "Upload Work/College ID (Optional)"] },
-    // { title: "PG Stay Details", fields: ["Check-in Date", { label: 'Room Sharing Type', type: 'dropdown', options: ['Single', 'Double', 'Triple', 'Four (Up)', 'Four (Down)'] }, { label: 'Room Number', type: 'dropdown', options: [ '0001', '0002','0010','0020','0030','0100','0200','0300','1000','2000'] },"Bed Number", { label: 'Monthly Rent', type: 'dropdown', options: [ '24000', '12000','9000','7500','7000'] }, { label: 'Security Deposit', type: 'dropdown', options: [ '24000', '12000','9000','7500','7000'] }, "Advance Paid So For","Rent Paid So For"] },
-
-    { title: "PG Stay Details", fields: ["Check-in Date", { label: 'Room Sharing Type', type: 'dropdown', options: ['Single', 'Double', 'Triple', 'Four (Up)', 'Four (Down)'] }, { label: 'Room Number', type: 'dropdown', options: [ '0001', '0002','0010','0020','0030','0100','0200','0300','1000','2000'] },"Bed Number",  "Advance Paid So For","Rent Paid So For"] },
-    // { title: "Services & Preferences", fields: ["Food Preference (Veg / Non-Veg / None)", "Laundry Subscription (Yes/No)", "Wi-Fi Required (Yes/No)", "Locker or Parking Needed (if applicable)"] },
-    { title: "Emergency Contact", fields: ["Emergency Contact Name", "Relationship", "Contact Number"] },
-    // { title: "Documents Upload", fields: ["ID Proof", "Address Proof (if separate)", "College/Company ID", "Photo", "Signed Agreement / Consent Form"] },
-    { title: "Review & Confirm", fields: ["Display all filled details for confirmation", "Accept terms & conditions checkbox"] }
-
+  // Explicitly type onboardingForm so field.regex is allowed (optional)
+  onboardingForm: Section[] = [
+    {
+      title: 'Personal Information',
+      fields: [
+        { id: 'udf1', label: 'Full Name', mandatory: true },
+        { id: 'udf2', label: 'Date of Birth', mandatory: true },
+        { id: 'udf3', label: 'Gender', type: 'dropdown', options: ['Male', 'Female', 'Other'], mandatory: true },
+        { id: 'udf4', label: 'Mobile Number', mandatory: true, regex: '^\\d{10}$' },
+        { id: 'udf5', label: 'Email ID', mandatory: true, regex: '^[\\w-.]+@([\\w-]+\\.)+[\\w-]{2,4}$' },
+        { id: 'udf6', label: "Father's / Guardian’s Name", mandatory: false }
+      ]
+    },
+    {
+      title: 'Address Details',
+      fields: [
+        { id: 'udf7', label: 'Permanent Address', mandatory: true },
+        {
+          id: 'udf8',
+          label: 'City',
+          type: 'dropdown',
+          options: ['Chennai', 'Coimbatore', 'Madurai', 'Tiruchirappalli', 'Salem'],
+          mandatory: true
+        },
+        {
+          id: 'udf9',
+          label: 'State',
+          type: 'dropdown',
+          options: ['Tamil Nadu', 'Karnataka', 'Kerala'],
+          mandatory: true
+        },
+        { id: 'udf10', label: 'Pincode', mandatory: true, regex: '^\\d{6}$' }
+      ]
+    },
+    {
+      title: 'ID Verification',
+      description: 'Collect identity proof and verify authenticity.',
+      fields: [
+        {
+          id: 'udf11',
+          label: 'ID Type',
+          type: 'dropdown',
+          options: ['Aadhaar Card', 'Passport', 'Voter ID', 'PAN Card'],
+          mandatory: true
+        },
+        { id: 'udf12', label: 'ID Number', mandatory: true, regex: '^[A-Za-z0-9- ]{3,50}$' },
+        { id: 'udf13', label: 'Upload ID Proof (PDF/Image)', mandatory: true },
+        { id: 'udf14', label: 'Upload Passport Size Photo', mandatory: false }
+      ]
+    },
+    {
+      title: 'PG Stay Details',
+      fields: [
+        { id: 'udf15', label: 'Check-in Date', mandatory: true },
+        {
+          id: 'udf16',
+          label: 'Room Sharing Type',
+          type: 'dropdown',
+          options: ['Single', 'Double', 'Triple', 'Four Sharing Top', 'Four Sharing Bottom'],
+          mandatory: true
+        },
+        {
+          id: 'udf17',
+          label: 'Room Numbers',
+          type: 'dropdown',
+          options: ['0001', '0002', '0010'],
+          mandatory: true
+        },
+        // explicitly mark bed number as text to avoid tel fallback
+        { id: 'udf18', label: 'Bed Numbers', mandatory: false, type: 'text' },
+        { id: 'udf19', label: 'Advance Paid So For', mandatory: false },
+        // udf20 is the rent (amount field). We'll auto-populate this when udf16 changes.
+        { id: 'udf20', label: 'Rent Paid So For', mandatory: false }
+      ]
+    },
+    {
+      title: 'Emergency Contact',
+      fields: [
+        // Emergency Contact Name should be text; Contact Number has regex
+        { id: 'udf21', label: 'Emergency Contact Name', mandatory: true, type: 'text' },
+        { id: 'udf22', label: 'Relationship', mandatory: true },
+        { id: 'udf23', label: 'Contact Number', mandatory: true, regex: '^\\d{10}$' }
+      ]
+    },
+    {
+      title: 'Review & Confirm',
+      fields: [
+        { id: 'udf24', label: 'Display all filled details for confirmation', mandatory: true },
+        { id: 'udf25', label: 'Accept terms & conditions checkbox', mandatory: true }
+      ]
+    }
   ];
 
   profileForm = new FormGroup({});
 
-
   ngOnInit(): void {
-    this.generateDynamicForm();
-    this.form = this.fb.group({
-      productName: ['', Validators.required],
-      productCode: ['', Validators.required],
-      hsnCode: [''],
-      salePrice: [0, [Validators.required, Validators.min(0)]]
-    });
+    // add common currency control
+    this.profileForm.addControl('common_currency', new FormControl<any>(this.baseCurrency));
 
-    // read query params to decide mode
+    this.generateDynamicForm();
+
+    const commonCurrencyCtrl = this.profileForm.get('common_currency') as unknown as FormControl<any> | null;
+    if (commonCurrencyCtrl) {
+      const s = (commonCurrencyCtrl as FormControl<any>).valueChanges.subscribe((v: string) => {
+        for (const sec of this.onboardingForm) {
+          for (const f of sec.fields) {
+            const controlName = this.sanitizeControlName(f);
+            if (this.isAmountField(f)) {
+              const currencyCtrl = this.profileForm.get(`${controlName}_currency`) as unknown as FormControl<any> | null;
+              const baseCtrl = this.profileForm.get(`${controlName}_base`) as unknown as FormControl<any> | null;
+              if (currencyCtrl) (currencyCtrl as FormControl<any>).setValue(v, { emitEvent: false });
+              const raw = this.parseNumberFromFormatted(String(this.profileForm.get(controlName)?.value || ''));
+              if (baseCtrl) (baseCtrl as FormControl<any>).setValue(this.convertToBase(raw, v), { emitEvent: false });
+            }
+          }
+        }
+      });
+      this.valueSubs.push(s);
+    }
+
+    // read query params to decide mode (add/edit/view)
     this.ar.queryParams.subscribe(params => {
       const m = params['mode'];
       const id = params['id'];
-      this.mode = m === 'edit' ? 'edit' : 'add';
-      if (id) {
-        this.editingId = id;
-        // TODO: load the product by id (call service) and patch the form
-        // For now keep form empty or prefill with example
-        // this.form.patchValue({ productName: 'Loaded name', productCode: 'xx', salePrice: 10 });
-      }
+      // set mode
+      this.mode = (m === 'edit' || m === 'view') ? m : 'add';
+      // set readonly if view
+      this.readonly = (this.mode === 'view');
+      if (id) this.editingId = id;
+
       if (params['returnUrl']) {
         this.returnUrl = params['returnUrl'];
       }
     });
+
+    // navigation state record (grid passed)
+    const nav = this.router.getCurrentNavigation();
+    const rec = nav?.extras?.state?.['record'];
+
+    // If there's a record in navigation state, populate the form
+    if (rec) {
+      // ensure form controls exist (generateDynamicForm created them)
+      this.populateFormFromRecord(rec);
+      // if view mode, keep form controls disabled for extra safety:
+      if (this.mode === 'view') {
+        // disable all controls (keeps UI read-only)
+        Object.keys(this.profileForm.controls).forEach(k => {
+          // don't disable common_currency display (optional)
+          if (k === 'common_currency') return;
+          this.profileForm.get(k)?.disable({ emitEvent: false });
+        });
+      }
+    }
+
+    // Try to populate from shared service or navigation state
+    const svcRec = this.editSvc.get();
+    if (svcRec) {
+      // small safety: schedule populate on next tick to avoid micro-timing issues
+      setTimeout(() => this.populateFormFromRecord(svcRec), 0);
+    } else {
+      const nav2 = this.router.getCurrentNavigation();
+      const rec2 = nav2?.extras?.state?.['record'];
+      if (rec2) this.populateFormFromRecord(rec2);
+    }
   }
 
-  save() {
-    if (this.form.invalid) {
-      this.form.markAllAsTouched();
+
+  private populateFormFromRecord(rec: any) {
+    if (!rec) return;
+
+    // debug
+    console.debug('populateFormFromRecord called, rec keys:', Object.keys(rec || {}));
+    console.debug('profileForm controls:', Object.keys(this.profileForm.controls));
+    if (Array.isArray(rec.fields)) console.debug('rec.fields[0] example:', rec.fields[0]);
+
+    // Normalize incoming record into an array of entries
+    const entries: Array<{ key: string, payload: any }> = [];
+    const pushKey = (k: string, payload: any) => { if (!k) return; entries.push({ key: String(k), payload }); };
+
+    if (Array.isArray(rec.fields)) {
+      for (const f of rec.fields) {
+        // prefer explicit key/id if present
+        let key = (f && (f.key ?? f.id)) ? (f.key ?? f.id) : null;
+
+        // If no key but payload has a label, try to find onboardingForm field by label
+        if (!key && f && typeof f.label === 'string' && f.label.trim() !== '') {
+          const incomingLabel = f.label.trim().toLowerCase();
+          let matchedId: string | undefined;
+          // exact
+          for (const sec of this.onboardingForm) {
+            for (const fld of sec.fields) {
+              if ((fld.label || '').toString().trim().toLowerCase() === incomingLabel) {
+                matchedId = fld.id;
+                break;
+              }
+            }
+            if (matchedId) break;
+          }
+          // partial fallback
+          if (!matchedId) {
+            for (const sec of this.onboardingForm) {
+              for (const fld of sec.fields) {
+                const fldLabel = (fld.label || '').toString().trim().toLowerCase();
+                if (!fldLabel) continue;
+                if (fldLabel.includes(incomingLabel) || incomingLabel.includes(fldLabel)) {
+                  matchedId = fld.id;
+                  break;
+                }
+              }
+              if (matchedId) break;
+            }
+          }
+          if (matchedId) {
+            key = matchedId;
+          }
+        }
+
+        // As a final fallback preserve previous behavior (sanitize label->controlName)
+        if (!key) {
+          key = (f && f.label) ? this.sanitizeControlName(f) : null;
+        }
+
+        if (key) pushKey(key, f);
+      }
+    } else if (rec.fields && typeof rec.fields === 'object') {
+      for (const k of Object.keys(rec.fields)) pushKey(k, rec.fields[k]);
+    } else {
+      for (const k of Object.keys(rec)) {
+        if (k === 'fields') continue;
+        pushKey(k, rec[k]);
+      }
+    }
+
+    console.debug('populateFormFromRecord: resolved entries ->', entries);
+
+    // helper: find control name in profileForm using heuristics (for safety)
+    const findControlName = (rawKey: string, payload: any): string | null => {
+      if (!rawKey) return null;
+      // direct
+      if (this.profileForm.contains(rawKey)) return rawKey;
+      // lowercase
+      const lc = rawKey.toLowerCase();
+      if (this.profileForm.contains(lc)) return lc;
+      // sanitized
+      const sanitized = this.sanitizeControlName({ id: rawKey, label: rawKey });
+      if (this.profileForm.contains(sanitized)) return sanitized;
+      // payload id/key
+      if (payload && (payload.id || payload.key)) {
+        const pk = String(payload.id ?? payload.key);
+        if (this.profileForm.contains(pk)) return pk;
+        if (this.profileForm.contains(pk.toLowerCase())) return pk.toLowerCase();
+      }
+      // match by label against onboardingForm definitions
+      try {
+        const labelToMatch = (payload && payload.label) ? String(payload.label).toLowerCase().trim() : rawKey.toLowerCase().trim();
+        for (const sec of this.onboardingForm) {
+          for (const fld of sec.fields) {
+            const fldLabel = (fld.label || '').toString().toLowerCase().trim();
+            const fldId = this.sanitizeControlName(fld);
+            if (!fldLabel) continue;
+            if (fldLabel === labelToMatch || fldLabel.includes(labelToMatch) || labelToMatch.includes(fldLabel)) {
+              if (this.profileForm.contains(fldId)) return fldId;
+            }
+          }
+        }
+      } catch (err) { /* ignore */ }
+
+      return null;
+    };
+
+    for (const entry of entries) {
+      const rawKey = entry.key;
+      const payload = entry.payload;
+      const ctrlName = findControlName(rawKey, payload);
+
+      if (!ctrlName) {
+        console.warn('populateFormFromRecord: no control found for incoming key/label:', rawKey, payload);
+        continue;
+      }
+
+      // value extraction (primitive or { value: ... } or { val: ... })
+      const incomingVal = (payload === null || payload === undefined || typeof payload === 'string' || typeof payload === 'number' || typeof payload === 'boolean')
+        ? payload
+        : (payload.value !== undefined ? payload.value : (payload.val !== undefined ? payload.val : null));
+
+      const inputType = this.getInputType(payload ?? { label: ctrlName });
+
+      // skip files
+      if (inputType === 'file' || String(payload?.label || '').toLowerCase().includes('upload')) {
+        console.debug('populateFormFromRecord: skipping file input', ctrlName);
+        continue;
+      }
+
+      // amount
+      if (this.isAmountField(payload ?? { label: ctrlName })) {
+        const currencyKey = `${ctrlName}_currency`;
+        const baseKey = `${ctrlName}_base`;
+        const rawVal = (typeof incomingVal === 'number') ? incomingVal : this.parseNumberFromFormatted(String(incomingVal ?? ''));
+        const currency = (payload && (payload.currency || payload.cur)) ? (payload.currency || payload.cur) : (this.profileForm.get('common_currency')?.value || this.baseCurrency);
+        if (this.profileForm.contains(currencyKey)) this.profileForm.get(currencyKey)!.setValue(currency, { emitEvent: false });
+        this.profileForm.get(ctrlName)!.setValue(this.formatNumberForDisplay(Number(rawVal || 0), currency), { emitEvent: false });
+        if (this.profileForm.contains(baseKey)) this.profileForm.get(baseKey)!.setValue(this.convertToBase(Number(rawVal || 0), currency), { emitEvent: false });
+        console.debug('populateFormFromRecord: set amount', ctrlName, rawVal, currency);
+        continue;
+      }
+
+      // checkbox
+      if (inputType === 'checkbox') {
+        this.profileForm.get(ctrlName)!.setValue(Boolean(incomingVal), { emitEvent: false });
+        console.debug('populateFormFromRecord: set checkbox', ctrlName, incomingVal);
+        continue;
+      }
+
+      // date handling
+      if (inputType === 'date') {
+        let dateVal: string | null = null;
+        if (incomingVal === null || incomingVal === undefined || incomingVal === '') {
+          dateVal = null;
+        } else {
+          const raw = String(incomingVal);
+          if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) dateVal = raw;
+          else if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
+            const [m, d, y] = raw.split('/');
+            dateVal = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+          } else if (/^\d{2}-\d{2}-\d{4}$/.test(raw)) {
+            const [d, m, y] = raw.split('-');
+            dateVal = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+          } else {
+            const dt = new Date(raw);
+            if (!isNaN(dt.getTime())) {
+              const y = dt.getFullYear();
+              const m = String(dt.getMonth() + 1).padStart(2, '0');
+              const d = String(dt.getDate()).padStart(2, '0');
+              dateVal = `${y}-${m}-${d}`;
+            } else dateVal = raw;
+          }
+        }
+        this.profileForm.get(ctrlName)!.setValue(dateVal, { emitEvent: false });
+        console.debug('populateFormFromRecord: set date', ctrlName, dateVal);
+        continue;
+      }
+
+      // dropdown / ng-select - set to exact value (or null)
+      const matchingDefinedField = this.onboardingForm.reduce((acc: any[], s) => acc.concat(s.fields), []).find(ff => this.sanitizeControlName(ff) === ctrlName);
+      if ((payload && payload.type === 'dropdown') || Array.isArray((payload as any)?.options) ||
+        Array.isArray(matchingDefinedField?.options)) {
+        this.profileForm.get(ctrlName)!.setValue(incomingVal ?? null, { emitEvent: false });
+        console.debug('populateFormFromRecord: set dropdown', ctrlName, incomingVal);
+        continue;
+      }
+
+      // default
+      this.profileForm.get(ctrlName)!.setValue(incomingVal ?? '', { emitEvent: false });
+      console.debug('populateFormFromRecord: set default', ctrlName, incomingVal);
+    }
+  }
+
+
+
+
+  ngOnDestroy(): void {
+    this.valueSubs.forEach(s => s.unsubscribe());
+  }
+
+  // public so template can call it
+  public isAmountField(field: Field | any): boolean {
+    const label = (typeof field === 'string' ? field : (field?.label || '')).toLowerCase();
+    return (field && field.type === 'number') || label.includes('amount') || label.includes('deposit') || label.includes('rent') || label.includes('paid') || label.includes('advance');
+  }
+
+  // improved input type detection
+  public getInputType(field: Field | any): string {
+    const label = typeof field === 'string' ? field : (field?.label || '');
+    const lower = (label || '').toLowerCase().trim();
+
+    // explicit special cases
+    if (lower.includes('display all filled details for confirmation') || lower.includes('accept terms & conditions')) {
+      return 'checkbox';
+    }
+    if (lower.includes('email')) return 'email';
+    if (lower.includes('date')) return 'date';
+    if (lower.includes('password')) return 'password';
+    if (lower.includes('upload') || lower.includes('file') || lower.includes('photo')) return 'file';
+
+    // prefer name/text when label mentions name
+    if (lower.includes('name')) return 'text';
+
+    // explicit number patterns — be precise
+    if (lower.includes('mobile') || lower.includes('mobile number') || lower.includes('contact number') ||
+      lower.includes('contact no') || lower.includes('pincode') || /\bnumber\b/.test(lower)) {
+      return 'tel';
+    }
+
+    // currency/amount handled as text (we format separately)
+    if (lower.includes('amount') || lower.includes('deposit') || lower.includes('rent') || lower.includes('paid')) return 'text';
+
+    return 'text';
+  }
+
+  generateDynamicForm() {
+    // cleanup previous subs
+    this.valueSubs.forEach(s => s.unsubscribe());
+    this.valueSubs = [];
+
+    if (!Array.isArray(this.onboardingForm)) {
+      console.error('onboardingForm is not an array', this.onboardingForm);
       return;
     }
 
-    const payload = this.form.value;
-    if (this.mode === 'add') {
-      // TODO: call service to create
-      // navigate back to grid after creation
-      this.router.navigateByUrl(this.returnUrl);
-    } else {
-      // TODO: call service update with this.editingId
-      this.router.navigateByUrl(this.returnUrl);
-    }
-  }
-
-  back() {
-    // simply navigate back to grid (or to returnUrl)
-    this.router.navigateByUrl(this.returnUrl);
-  }
-
-
-ngAfterViewInit() {
-  if (this.readonly) {
-      this.profileForm.disable();
-    }
-  if (this.customerDatafromgrid && this.profileForm) {
-    this.profileForm.patchValue(this.customerDatafromgrid);
-    
-  }
-}
-
-
-
-
-
-  generateDynamicForm() {
     for (const section of this.onboardingForm) {
       for (const field of section.fields) {
         const controlName = this.sanitizeControlName(field);
-        if (!this.profileForm.contains(controlName)) {
-          this.profileForm.addControl(controlName, new FormControl('', Validators.required));
+
+        // build validators list
+        const validators: any[] = [];
+        if (field && (field as any).mandatory) validators.push(Validators.required);
+
+        const inputType = this.getInputType(field);
+
+        // explicitly skip pattern for dropdowns
+        let effectiveRegex: string | undefined = undefined;
+        if (field && field.type === 'dropdown') {
+          effectiveRegex = undefined;
+        }
+
+        if (inputType === 'email') {
+          validators.push(Validators.email);
+        }
+
+        if (inputType === 'tel') {
+          const fieldRegex = (field as Field)?.regex;
+          if (!fieldRegex) {
+            effectiveRegex = (field.label || '').toLowerCase().includes('pincode') ? '^\\d{6}$' : '^\\d{10}$';
+          } else {
+            effectiveRegex = fieldRegex;
+          }
+        } else {
+          // if field has regex (and it's not a dropdown), prefer that
+          if (!(field && field.type === 'dropdown') && field && typeof (field as Field).regex === 'string' && (field as Field).regex!.trim() !== '') {
+            effectiveRegex = (field as Field).regex!.trim();
+          }
+        }
+
+        // add regex pattern validator if effectiveRegex present and valid
+        if (typeof effectiveRegex === 'string' && effectiveRegex.trim() !== '') {
+          try {
+            new RegExp(effectiveRegex);
+            validators.push(Validators.pattern(effectiveRegex));
+          } catch (err) {
+            console.warn('Skipping invalid regex for', controlName, effectiveRegex, err);
+          }
+        }
+
+        // If control exists, update validators & ensure amount currency/base exist and re-hook subs.
+        if (this.profileForm.contains(controlName)) {
+          const existing = this.profileForm.get(controlName) as FormControl;
+          if (existing) {
+            existing.setValidators(validators);
+            existing.updateValueAndValidity({ emitEvent: false });
+          }
+
+          // ensure currency/base exist for amount fields
+          if (this.isAmountField(field)) {
+            if (!this.profileForm.contains(`${controlName}_currency`)) {
+              this.profileForm.addControl(`${controlName}_currency`, new FormControl<any>(this.profileForm.get('common_currency')?.value || this.baseCurrency));
+            }
+            if (!this.profileForm.contains(`${controlName}_base`)) {
+              this.profileForm.addControl(`${controlName}_base`, new FormControl<any>(0));
+            }
+
+            // re-add subscriptions for amount fields (we unsubscribed all at start)
+            const currCtrl = this.profileForm.get(`${controlName}_currency`) as unknown as FormControl<any>;
+            const amtCtrl = this.profileForm.get(controlName) as unknown as FormControl<any>;
+            const baseCtrl = this.profileForm.get(`${controlName}_base`) as unknown as FormControl<any>;
+
+            if (currCtrl && amtCtrl && baseCtrl) {
+              const s1 = (currCtrl as FormControl<any>).valueChanges.subscribe((newCurrency: string) => {
+                const raw = this.parseNumberFromFormatted(String(amtCtrl.value || ''));
+                const converted = this.convertToBase(raw, newCurrency);
+                (baseCtrl as FormControl<any>).setValue(converted, { emitEvent: false });
+              });
+              this.valueSubs.push(s1);
+
+              const s2 = (amtCtrl as FormControl<any>).valueChanges.subscribe(() => {
+                const raw = this.parseNumberFromFormatted(String(amtCtrl.value || ''));
+                const currency = currCtrl.value || (this.profileForm.get('common_currency')?.value || this.baseCurrency);
+                (baseCtrl as FormControl<any>).setValue(this.convertToBase(raw, currency), { emitEvent: false });
+              });
+              this.valueSubs.push(s2);
+
+              const initialRaw = this.parseNumberFromFormatted(String(this.profileForm.get(controlName)?.value || ''));
+              (baseCtrl as FormControl<any>).setValue(this.convertToBase(initialRaw, currCtrl.value), { emitEvent: false });
+            }
+          }
+        } else {
+          // Control doesn't exist yet -> create it
+          if (this.isAmountField(field)) {
+            this.profileForm.addControl(controlName, new FormControl<any>('', validators));
+            this.profileForm.addControl(`${controlName}_currency`, new FormControl<any>(this.profileForm.get('common_currency')?.value || this.baseCurrency));
+            this.profileForm.addControl(`${controlName}_base`, new FormControl<any>(0));
+
+            const currCtrl = this.profileForm.get(`${controlName}_currency`) as unknown as FormControl<any>;
+            const amtCtrl = this.profileForm.get(controlName) as unknown as FormControl<any>;
+            const baseCtrl = this.profileForm.get(`${controlName}_base`) as unknown as FormControl<any>;
+
+            const s1 = (currCtrl as FormControl<any>).valueChanges.subscribe((newCurrency: string) => {
+              const raw = this.parseNumberFromFormatted(String(amtCtrl.value || ''));
+              const converted = this.convertToBase(raw, newCurrency);
+              (baseCtrl as FormControl<any>).setValue(converted, { emitEvent: false });
+            });
+            this.valueSubs.push(s1);
+
+            const s2 = (amtCtrl as FormControl<any>).valueChanges.subscribe(() => {
+              const raw = this.parseNumberFromFormatted(String(amtCtrl.value || ''));
+              const currency = currCtrl.value || (this.profileForm.get('common_currency')?.value || this.baseCurrency);
+              (baseCtrl as FormControl<any>).setValue(this.convertToBase(raw, currency), { emitEvent: false });
+            });
+            this.valueSubs.push(s2);
+
+            const initialRaw = this.parseNumberFromFormatted(String(this.profileForm.get(controlName)?.value || ''));
+            (baseCtrl as FormControl<any>).setValue(this.convertToBase(initialRaw, currCtrl.value), { emitEvent: false });
+
+          } else if (inputType === 'checkbox') {
+            this.profileForm.addControl(controlName, new FormControl<any>(false, validators));
+          } else {
+            // For dropdowns we want the value to start as null so ng-select shows the placeholder.
+            const initial = (field && field.type === 'dropdown') ? null : '';
+            // this.profileForm.addControl(controlName, new FormControl<any>(initial, validators));
+            this.profileForm.addControl(controlName, new FormControl<any>({ value: initial, disabled: this.readonly }, validators));
+
+          }
+        }
+
+        // special subscription: if this is Room Sharing Type (udf16), when it changes populate rent field
+        if (controlName === 'udf16') {
+          const sharingCtrl = this.profileForm.get(controlName) as unknown as FormControl<any>;
+          // ensure we don't double-subscribe: the valueSubs were cleared above so it's safe to add
+          const s3 = (sharingCtrl as FormControl<any>).valueChanges.subscribe((selected: string) => {
+            const rate = this.sharingRates[selected] ?? 0;
+            // populate udf20 (Rent Paid So For)
+            const rentControlName = 'udf20';
+            if (this.profileForm.contains(rentControlName)) {
+              this.setAmountControlValue(rentControlName, rate, 'INR');
+            }
+          });
+          this.valueSubs.push(s3);
         }
       }
     }
   }
 
-  // sanitizeControlName(field: string): string {
-  //   return field.toLowerCase().replace(/[^\w]+/g, '_');
-  // }
+  // helper to set an amount control's value in formatted display + currency + base
+  private setAmountControlValue(controlName: string, amount: number, currency: string) {
+    const displayCtrl = this.profileForm.get(controlName) as unknown as FormControl<any> | null;
+    const currencyCtrl = this.profileForm.get(`${controlName}_currency`) as unknown as FormControl<any> | null;
+    const baseCtrl = this.profileForm.get(`${controlName}_base`) as unknown as FormControl<any> | null;
 
-  sanitizeControlName(field: any): string {
-  const label = typeof field === 'string' ? field : field.label;
-  return label.toLowerCase().replace(/[^a-z0-9]/g, '_');
-}
+    if (currencyCtrl) (currencyCtrl as FormControl<any>).setValue(currency, { emitEvent: false });
 
-  // async onSubmit() {
-  //   if (this.profileForm.invalid) {
-  //     this.profileForm.markAllAsTouched();
-  //     return;
-  //   }
+    if (displayCtrl) {
+      const formatted = this.formatNumberForDisplay(amount, currency);
+      displayCtrl.setValue(formatted, { emitEvent: false });
+    }
 
-  //   const inputMap = this.profileForm.value;
-
-
-
-  //   if(this.customerDatafromgrid){
-  //     try {
-  //       await this.updateCustomerFull(this.customerDatafromgrid.key, inputMap).toPromise();
-  //     } catch (error) {
-  //       console.error('HTTP Error:', error);
-  //     }
-  //   }
-  //   else{
-  //   try {
-  //     const response = await this.http.post( 'https://hostel-management-system-4f29a-default-rtdb.firebaseio.com/newcustomer.json', inputMap, { headers: { 'Content-Type': 'application/json' } } ).toPromise();
-  //   } catch (error) {
-  //     console.error('HTTP Error:', error);
-  //   }
-  // }
-  // }
-
-
-
-async onSubmit() {
-  if (this.profileForm.invalid) {
-    this.profileForm.markAllAsTouched();
-    return;
+    if (baseCtrl) {
+      baseCtrl.setValue(this.convertToBase(amount, currency), { emitEvent: false });
+    }
   }
 
-  const inputMap = this.profileForm.value;
+  sanitizeControlName(field: Field | any): string {
+    if (!field) return '';
+    if (typeof field === 'string') return field.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    if ((field as Field).id) return (field as Field).id!;
+    return (field.label || '').toLowerCase().replace(/[^a-z0-9]/g, '_');
+  }
 
-  if (this.customerDatafromgrid) {
-    // ✅ Update existing record
+  parseNumberFromFormatted(val: string | null): number {
+    if (val === null || val === undefined || val === '') return 0;
+    const cleaned = String(val).replace(/[^\d.-]/g, '');
+    const num = Number(cleaned);
+    return isNaN(num) ? 0 : num;
+  }
+
+  formatNumberForDisplay(value: number, currency: string): string {
+    const num = Number(value) || 0;
     try {
-      await this.updateCustomerFull(this.customerDatafromgrid.key, inputMap).toPromise();
-//  this.dialogRef.close(true); 
-      Swal.fire({
-        icon: 'success',
-        title: 'Updated Successfully',
-        text: 'Customer details have been updated!',
-        confirmButtonColor: '#3085d6'
-      });
-      // this.dialogRef.close(true); 
-
-    } catch (error) {
-      console.error('HTTP Error:', error);
-      Swal.fire({
-        icon: 'error',
-        title: 'Update Failed',
-        text: 'Something went wrong while updating customer!',
-        confirmButtonColor: '#d33'
-      });
+      const locale = (currency === 'INR') ? 'en-IN' : 'en-US';
+      return num.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    } catch {
+      return num.toString();
     }
-  } else {
-    // ✅ Create new record
+  }
+
+  convertToBase(value: number | string | null, currency: string): number {
+    if (value === null || value === undefined || value === '') return 0;
+    const num = Number(value) || 0;
+    const srcRate = this.exchangeRates[currency] ?? 1;
+    const baseRate = this.exchangeRates[this.baseCurrency] ?? 1;
+    return num * (srcRate / baseRate);
+  }
+
+  onAmountInput(controlName: string) {
+    const ctrl = this.profileForm.get(controlName) as unknown as FormControl<any> | null;
+    if (!ctrl) return;
+    const raw = this.parseNumberFromFormatted(String(ctrl.value || ''));
+    const currency = (this.profileForm.get(`${controlName}_currency`) as unknown as FormControl<any>)?.value || (this.profileForm.get('common_currency') as unknown as FormControl<any>)?.value || this.baseCurrency;
+    const baseCtrl = this.profileForm.get(`${controlName}_base`) as unknown as FormControl<any> | null;
+    if (baseCtrl) (baseCtrl as FormControl<any>).setValue(this.convertToBase(raw, currency), { emitEvent: false });
+  }
+
+  onAmountBlur(controlName: string) {
+    const ctrl = this.profileForm.get(controlName) as unknown as FormControl<any> | null;
+    if (!ctrl) return;
+    const raw = this.parseNumberFromFormatted(String(ctrl.value || ''));
+    const currency = (this.profileForm.get(`${controlName}_currency`) as unknown as FormControl<any>)?.value || (this.profileForm.get('common_currency') as unknown as FormControl<any>)?.value || this.baseCurrency;
+    const formatted = this.formatNumberForDisplay(raw, currency);
+    ctrl.setValue(formatted, { emitEvent: false });
+    const baseCtrl = this.profileForm.get(`${controlName}_base`) as unknown as FormControl<any> | null;
+    if (baseCtrl) (baseCtrl as FormControl<any>).setValue(this.convertToBase(raw, currency), { emitEvent: false });
+  }
+
+  numberToWords(value: number, currency: string): string {
+    if (value === null || value === undefined) return '';
+    const num = Math.abs(Math.floor(value));
+    const decimals = Math.round((Math.abs(Number(String(value))) - Math.floor(Math.abs(Number(value)))) * 100);
+
+    if (num === 0 && decimals === 0) {
+      return `Zero ${this.currencyUnitMajor(currency)} only`;
+    }
+
+    const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+      'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+    const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+    function inWords(n: number): string {
+      if (n < 20) return a[n];
+      if (n < 100) return b[Math.floor(n / 10)] + (n % 10 ? ' ' + a[n % 10] : '');
+      if (n < 1000) return a[Math.floor(n / 100)] + ' Hundred' + (n % 100 ? ' ' + inWords(n % 100) : '');
+      if (n < 100000) return inWords(Math.floor(n / 1000)) + ' Thousand' + (n % 1000 ? ' ' + inWords(n % 1000) : '');
+      if (n < 10000000) return inWords(Math.floor(n / 100000)) + ' Lakh' + (n % 100000 ? ' ' + inWords(n % 100000) : '');
+      return inWords(Math.floor(n / 10000000)) + ' Crore' + (n % 10000000 ? ' ' + inWords(n % 10000000) : '');
+    }
+
+    const major = inWords(num);
+    const minor = (decimals > 0) ? `${decimals}/100` : null;
+
+    if (minor) {
+      return `${major} ${this.currencyUnitMajor(currency)} and ${minor} ${this.currencyUnitMinor(currency)} only`;
+    } else {
+      return `${major} ${this.currencyUnitMajor(currency)} only`;
+    }
+  }
+
+  currencyUnitMajor(currency: string) {
+    switch ((currency || '').toUpperCase()) {
+      case 'INR': return 'Rupees';
+      case 'USD': return 'Dollars';
+      case 'EUR': return 'Euros';
+      case 'GBP': return 'Pounds';
+      case 'AED': return 'Dirhams';
+      default: return currency || 'Units';
+    }
+  }
+  currencyUnitMinor(currency: string) {
+    switch ((currency || '').toUpperCase()) {
+      case 'INR': return 'Paise';
+      case 'USD': return 'Cents';
+      case 'EUR': return 'Cents';
+      case 'GBP': return 'Pence';
+      case 'AED': return 'Fils';
+      default: return 'Cents';
+    }
+  }
+
+  // returns words for the typed amount (same as before)
+  getAmountInWords(controlName: string): string {
+    const ctrl = this.profileForm.get(controlName) as unknown as FormControl<any> | null;
+    if (!ctrl) return '';
+    const raw = this.parseNumberFromFormatted(String(ctrl.value || ''));
+    const currency = (this.profileForm.get(`${controlName}_currency`) as unknown as FormControl<any>)?.value || (this.profileForm.get('common_currency') as unknown as FormControl<any>)?.value || this.baseCurrency;
+    return this.numberToWords(raw, currency);
+  }
+
+  // NEW: returns words for the base-converted value
+  public getBaseAmountInWords(controlName: string): string {
+    const baseCtrl = this.profileForm.get(`${controlName}_base`) as unknown as FormControl<any> | null;
+    if (!baseCtrl) return '';
+    const rawBase = Number(baseCtrl.value) || 0;
+    return this.numberToWords(rawBase, this.baseCurrency);
+  }
+
+  getConvertedLabelFor(controlName: string): string {
+    const ctrl = this.profileForm.get(controlName) as unknown as FormControl<any> | null;
+    if (!ctrl) return '';
+    const raw = this.parseNumberFromFormatted(String(ctrl.value || ''));
+    const currency = (this.profileForm.get(`${controlName}_currency`) as unknown as FormControl<any>)?.value || (this.profileForm.get('common_currency') as unknown as FormControl<any>)?.value || this.baseCurrency;
+    const converted = this.convertToBase(raw, currency);
+    const formatted = this.formatNumberForDisplay(converted, this.baseCurrency);
+    return `${this.baseCurrency} ${formatted}`;
+  }
+
+  private buildStructuredPayload(flatValues: { [k: string]: any }): { [k: string]: any } {
+    const result: { [k: string]: any } = {};
+    for (const section of this.onboardingForm) {
+      for (const field of section.fields) {
+        const controlName = this.sanitizeControlName(field);
+        const label = typeof field === 'string' ? field : field.label ?? controlName;
+        const rawValFormatted = flatValues.hasOwnProperty(controlName) ? flatValues[controlName] : null;
+        const value = this.isAmountField(field) ? this.parseNumberFromFormatted(String(rawValFormatted)) : rawValFormatted;
+        const mandatory = (field && (field as any).mandatory) ? 'yes' : 'no';
+        const obj: any = { value, label, mandatory };
+
+        if (this.isAmountField(field)) {
+          const currencyKey = `${controlName}_currency`;
+          const baseKey = `${controlName}_base`;
+          const currency = flatValues.hasOwnProperty(currencyKey) ? flatValues[currencyKey] : this.profileForm.get('common_currency')?.value || this.baseCurrency;
+          const converted = flatValues.hasOwnProperty(baseKey) ? Number(flatValues[baseKey]) : this.convertToBase(value, currency);
+          obj.currency = currency;
+          obj.convertedToBase = converted;
+        }
+
+        result[controlName] = obj;
+      }
+    }
+    return result;
+  }
+
+  async onSubmit() {
+    if (this.profileForm.invalid) {
+      this.profileForm.markAllAsTouched();
+      return;
+    }
+
+    const flatInputMap = this.profileForm.getRawValue();
+    const structuredPayload = this.buildStructuredPayload(flatInputMap);
+
+    // -------------------------------
+    // EDIT MODE
+    // -------------------------------
+    if (this.customerDatafromgrid) {
+
+      try {
+        await lastValueFrom(this.updateCustomerFull(this.customerDatafromgrid.key, structuredPayload));
+
+        // ✓ SUCCESS POPUP → redirect afterwards
+        Swal.fire({
+          icon: 'success',
+          title: 'Updated Successfully',
+          text: 'Customer details have been updated!',
+          confirmButtonColor: '#3085d6'
+        }).then(() => {
+          this.profileForm.reset();
+          this.router.navigate(['/home/container/dynamic-grid']);
+        });
+
+      } catch (error) {
+
+        console.error('HTTP Error:', error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Update Failed',
+          text: 'Something went wrong while updating customer!',
+          confirmButtonColor: '#d33'
+        });
+      }
+
+      return;
+    }
+
+    // -------------------------------
+    // ADD MODE
+    // -------------------------------
     try {
-      await this.http.post(
+
+      await lastValueFrom(this.http.post(
         'https://hostel-management-system-4f29a-default-rtdb.firebaseio.com/newcustomer.json',
-        inputMap,
+        structuredPayload,
         { headers: { 'Content-Type': 'application/json' } }
-      ).toPromise();
-//  this.dialogRef.close(true); 
+      ));
+
+      // ✓ SUCCESS POPUP → redirect afterwards
       Swal.fire({
         icon: 'success',
         title: 'Created Successfully',
         text: 'New customer has been added!',
-        confirmButtonColor: '#3085d6'
+        timer: 1500,
+        showConfirmButton: false
+      }).then(() => {
+        this.profileForm.reset();
+        this.router.navigate(['/home/container/dynamic-grid']);
       });
-      this.profileForm.reset();
 
     } catch (error) {
+
       console.error('HTTP Error:', error);
       Swal.fire({
         icon: 'error',
@@ -220,142 +877,79 @@ async onSubmit() {
         text: 'Something went wrong while creating customer!',
         confirmButtonColor: '#d33'
       });
+
     }
   }
-}
-
 
 
   updateCustomerFull(key: string, val: object) {
-  return this.http.put(
-    `https://hostel-management-system-4f29a-default-rtdb.firebaseio.com/newcustomer/${key}.json`,
-    val
-  );
-}
-
-
-  resetForm() {
-  Swal.fire({
-    title: 'Are you sure?',
-    text: 'This will clear all entered data!',
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonText: 'Yes, reset it!',
-    cancelButtonText: 'No, keep it',
-    reverseButtons: true,
-    customClass: {
-      popup: 'swal-top'
-    }
-  }).then((result) => {
-    if (result.isConfirmed) {
-      this.profileForm.reset();
-
-      Swal.fire({
-        icon: 'success',
-        title: 'Form Reset',
-        text: 'All fields have been cleared.',
-        timer: 2000,
-        showConfirmButton: false,
-        customClass: {
-          popup: 'swal-top'
-        }
-      });
-    }
-  });
-}
-
-  goToDashboard() {
-    this.router.navigate(['Landingscreen']);  
+    return this.http.put(`https://hostel-management-system-4f29a-default-rtdb.firebaseio.com/newcustomer/${key}.json`, val);
   }
 
-  getInputType(field: string): string {
-  const lower = field.toLowerCase();
+  resetForm() {
+    Swal.fire({
+      title: 'Are you sure?',
+      text: 'This will clear all entered data!',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, reset it!',
+      cancelButtonText: 'No, keep it',
+      reverseButtons: true,
+      customClass: { popup: 'swal-top' }
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.profileForm.reset();
+        (this.profileForm.get('common_currency') as unknown as FormControl<any>)?.setValue(this.baseCurrency);
+        this.generateDynamicForm();
+        Swal.fire({ icon: 'success', title: 'Form Reset', text: 'All fields have been cleared.', timer: 2000, showConfirmButton: false, customClass: { popup: 'swal-top' } });
+      }
+    });
+  }
 
- if (lower.includes('display all filled details for confirmation') || lower.includes('accept terms & conditions')) {
-    return 'checkbox';
-  }  
-  if (lower.includes('Email ID')) return 'email';
-  if (lower.includes('date')) return 'date';
-  if (lower.includes('mobile') || lower.includes('number') || lower.includes('pincode')) return 'tel';
-  if (lower.includes('password')) return 'password';
-  if (lower.includes('amount') || lower.includes('deposit') || lower.includes('rent')) return 'number';
-  if (lower.includes('upload') || lower.includes('file')) return 'file';
+  goToGrid() {
+    this.router.navigate(['home/container/dynamic-grid']);
+  }
 
+  // Focus helpers ---------------------------------------------------------
 
-  return 'text';
+  focusNext(event: Event) {
+    try { event.preventDefault(); } catch { /* ignore */ }
+    const current = event.target as HTMLElement | null;
+    if (!current) return;
+    this.focusNextFromElement(current);
+  }
+
+  private focusNextFromElement(current: HTMLElement) {
+    // limit search to the current form so we don't jump outside
+    const formEl = current.closest('form') as HTMLFormElement | null;
+    const selector = [
+      'input:not([type="hidden"]):not([disabled]):not([readonly])',
+      'select:not([disabled]):not([readonly])',
+      'textarea:not([disabled]):not([readonly])',
+      'button:not([disabled])'
+    ].join(', ');
+
+    const all = formEl ? Array.from(formEl.querySelectorAll<HTMLElement>(selector)) : Array.from(document.querySelectorAll<HTMLElement>(selector));
+    const index = all.indexOf(current);
+
+    if (index === -1 && current.id) {
+      const fallbackIdx = all.findIndex(el => el.id === current.id);
+      if (fallbackIdx !== -1 && fallbackIdx < all.length - 1) {
+        const nextFallback = all[fallbackIdx + 1];
+        nextFallback.focus();
+        if (nextFallback instanceof HTMLInputElement) nextFallback.select();
+      }
+      return;
+    }
+
+    if (index >= 0 && index < all.length - 1) {
+      const next = all[index + 1];
+      next.focus();
+      if (next instanceof HTMLInputElement) {
+        try { next.select(); } catch { }
+      }
+    }
+  }
+
+  // ---------- end (old custom dropdown code removed — ng-select handles dropdown behavior) ----------
 }
-
-}
-
-
-
-
-
-
-// import { Component, OnInit } from '@angular/core';
-// import { CommonModule } from '@angular/common';
-// import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
-// import { Router, ActivatedRoute } from '@angular/router';
-
-// @Component({
-//   selector: 'app-dynamic-form',
-//   standalone: true,
-//   imports: [CommonModule, FormsModule, ReactiveFormsModule],
-// templateUrl: './dynamic-form.html',
-//   styleUrl: './dynamic-form.css',
-// })
-// export class DynamicForm implements OnInit {
-//   form!: FormGroup;
-//   mode: 'add' | 'edit' = 'add';
-//   editingId?: string;
-//   returnUrl = '/home/container/dynamic-grid';
-
-//   constructor(private fb: FormBuilder, private router: Router, private ar: ActivatedRoute) {}
-
-//   ngOnInit(): void {
-//     this.form = this.fb.group({
-//       productName: ['', Validators.required],
-//       productCode: ['', Validators.required],
-//       hsnCode: [''],
-//       salePrice: [0, [Validators.required, Validators.min(0)]]
-//     });
-
-//     // read query params to decide mode
-//     this.ar.queryParams.subscribe(params => {
-//       const m = params['mode'];
-//       const id = params['id'];
-//       this.mode = m === 'edit' ? 'edit' : 'add';
-//       if (id) {
-//         this.editingId = id;
-//         // TODO: load the product by id (call service) and patch the form
-//         // For now keep form empty or prefill with example
-//         // this.form.patchValue({ productName: 'Loaded name', productCode: 'xx', salePrice: 10 });
-//       }
-//       if (params['returnUrl']) {
-//         this.returnUrl = params['returnUrl'];
-//       }
-//     });
-//   }
-
-//   save() {
-//     if (this.form.invalid) {
-//       this.form.markAllAsTouched();
-//       return;
-//     }
-
-//     const payload = this.form.value;
-//     if (this.mode === 'add') {
-//       // TODO: call service to create
-//       // navigate back to grid after creation
-//       this.router.navigateByUrl(this.returnUrl);
-//     } else {
-//       // TODO: call service update with this.editingId
-//       this.router.navigateByUrl(this.returnUrl);
-//     }
-//   }
-
-//   back() {
-//     // simply navigate back to grid (or to returnUrl)
-//     this.router.navigateByUrl(this.returnUrl);
-//   }
-// }

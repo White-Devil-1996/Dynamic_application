@@ -1,81 +1,96 @@
 <div class="">
   <div class="">
-    <!-- <div class="card-title">Products</div> -->
-
-    <div class="card-controls">
-      <div class="search-wrapper">
+    <div class="card-controls" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <div class="search-wrapper" style="display:flex;align-items:center;gap:8px;">
         <i class="fa fa-search search-icon"></i>
-        <input class="search-input" [(ngModel)]="searchText" placeholder="Search" />
+        <input class="search-input" [(ngModel)]="searchText" placeholder="Search label / value / key" />
       </div>
 
-      <button class="btn small pink" (click)="exportCSV()" title="Export CSV"><i class="fa fa-upload"></i></button>
-      <button class="btn small pink" (click)="printAll()" title="Print"><i class="fa fa-print"></i></button>
-      <button class="btn small pink" (click)="openFilters()" title="Filters"><i class="fa fa-filter"></i></button>
-
-      <!-- + button routes to form -->
-      <button class="btn small pink" (click)="goToAddForm()" title="Add Product"><i class="fa fa-plus"></i></button>
+      <div style="display:flex;gap:6px;margin-left:auto;">
+        <button class="btn small pink" (click)="exportCSV()" title="Export CSV"><i class="fa fa-upload"></i></button>
+        <button class="btn small pink" (click)="goToAddForm()" title="Add Customer"><i class="fa fa-plus"></i></button>
+      </div>
     </div>
   </div>
 
-  <div class="table-wrapper">
-    <table class="table table-striped">
+  <div class="table-wrapper" style="margin-top:12px;">
+    <table class="table table-striped table-responsive" style="width:100%;">
       <thead>
         <tr>
           <th class="tiny-col">S.No</th>
-          <th (click)="toggleSort('productName')" class="clickable">Product Name
-            <i *ngIf="sortColumn === 'productName'" class="fa ms-1" [ngClass]="sortDirection==='asc' ? 'fa-sort-asc' : 'fa-sort-desc'"></i>
+          <th (click)="toggleSort('id')" class="clickable">ID
+            <i *ngIf="sortColumn === 'id'" class="fa ms-1"
+              [ngClass]="sortDirection==='asc' ? 'fa-sort-asc' : 'fa-sort-desc'"></i>
           </th>
-          <th (click)="toggleSort('productCode')" class="clickable">Product Code
-            <i *ngIf="sortColumn === 'productCode'" class="fa ms-1" [ngClass]="sortDirection==='asc' ? 'fa-sort-asc' : 'fa-sort-desc'"></i>
+
+          <th *ngFor="let col of columns" (click)="toggleSort(col.key)" class="clickable">
+            {{ col.label }}
+            <i *ngIf="sortColumn === col.key" class="fa ms-1"
+              [ngClass]="sortDirection==='asc' ? 'fa-sort-asc' : 'fa-sort-desc'"></i>
           </th>
-          <th (click)="toggleSort('hsnCode')" class="clickable">HSN
-            <i *ngIf="sortColumn === 'hsnCode'" class="fa ms-1" [ngClass]="sortDirection==='asc' ? 'fa-sort-asc' : 'fa-sort-desc'"></i>
-          </th>
-          <th (click)="toggleSort('salePrice')" class="clickable">Sale Price
-            <i *ngIf="sortColumn === 'salePrice'" class="fa ms-1" [ngClass]="sortDirection==='asc' ? 'fa-sort-asc' : 'fa-sort-desc'"></i>
-          </th>
-          <th class="tiny-col">Print</th>
+
           <th class="action-col">Action</th>
         </tr>
       </thead>
+
       <tbody>
-        <tr *ngFor="let p of (filteredProducts | paginate: { itemsPerPage: itemsPerPage, currentPage: pPage }); let idx = index; trackBy: trackById">
-          <td class="tiny-col">{{ (pPage - 1) * itemsPerPage + idx + 1 }}</td>
-          <td>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <!-- <img *ngIf="p.imageUrl" [src]="p.imageUrl" alt="thumb" style="width:36px;height:36px;object-fit:cover;border-radius:6px;border:1px solid rgba(0,0,0,0.06)" /> -->
-              <span>{{ p.productName }}</span>
-            </div>
+        <tr *ngFor="
+      let rec of (filteredRecords | paginate: { itemsPerPage: itemsPerPage, currentPage: pPage, id: 'pg1' });
+      let idx = index;
+      trackBy: trackByRecord
+    ">
+          <td>{{ (pPage - 1) * itemsPerPage + idx + 1 }}</td>
+          <td>{{ rec.id }}</td>
+
+          <td *ngFor="let col of columns">
+            <ng-container *ngIf="!isObject(getValue(rec, col.key))">
+              {{ getValue(rec, col.key) ?? '—' }}
+            </ng-container>
+            <ng-container *ngIf="isObject(getValue(rec, col.key))">
+              {{ getValue(rec, col.key) | json }}
+            </ng-container>
+            <span *ngIf="col.currency"> &nbsp; ({{ col.currency }})</span>
           </td>
-          <td>{{ p.productCode }}</td>
-          <td>{{ p.hsnCode }}</td>
-          <td>₹{{ p.salePrice }}</td>
-          <td class="tiny-col"><button class="btn icon" (click)="printBarcode(p)"><i class="fa fa-print"></i></button></td>
-          <td class="action-col">
-            <button class="btn icon" (click)="confirmDelete(p.id)"><i class="fa fa-trash text-danger"></i></button>
-            <button class="btn icon" (click)="goToEditForm(p)"><i class="fa fa-pencil text-muted"></i></button>
-          </td>
+
+        <td class="action-col">
+  <!-- VIEW -->
+  <button class="btn icon" style="color: var(--primary);" title="View" (click)="goToViewForm(rec)">
+    <i class="fa fa-eye" aria-hidden="true"></i>
+  </button>
+
+  <!-- EDIT -->
+  <button class="btn icon" style="color: var(--primary);" title="Edit" (click)="goToEditForm(rec)">
+    <i class="fa fa-pencil" aria-hidden="true"></i>
+  </button>
+
+  <!-- DELETE -->
+  <button class="btn icon" style="color: var(--primary);" title="Delete" (click)="confirmDelete(rec.id)">
+    <i class="fa fa-trash text-danger" aria-hidden="true"></i>
+  </button>
+</td>
         </tr>
 
-        <tr *ngIf="filteredProducts.length === 0">
-          <td colspan="7" class="no-records">No records found.</td>
+        <tr *ngIf="filteredRecords.length === 0">
+          <td [attr.colspan]="2 + columns.length + 1" class="no-records">No records found.</td>
         </tr>
       </tbody>
     </table>
   </div>
 
-  <div class="footer-row">
+  <div class="footer-row" style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
     <div class="range-text">{{ showRangeText() }}</div>
     <div class="pagination-controls">
-      <!-- NOTE: use property bindings (number / boolean) instead of plain attributes -->
       <pagination-controls
-        (pageChange)="pPage = $any($event)"
-        id="pg1"
-        [maxSize]="7"
-        [directionLinks]="true"
-        [autoHide]="true"
-        class="ngx-pagination">
-      </pagination-controls>
+  id="pg1"
+  (pageChange)="pPage = $any($event)"
+  [maxSize]="7"
+  [directionLinks]="true"
+  [responsive]="true"
+  [autoHide]="false"
+  class="ngx-pagination">
+</pagination-controls>
+
+
     </div>
   </div>
 </div>

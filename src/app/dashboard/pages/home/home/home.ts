@@ -21,7 +21,7 @@ type MenuItem = {
 };
 
 type AppModel = {
-  brand: { title: string };
+  brand: { title: string, applicationName: string };
   topbar: { userLabelPrefix?: string; showLogout?: boolean };
   menus: MenuItem[];
   footer: { copyrightPrefix: string; name: string };
@@ -44,18 +44,21 @@ export class Home implements OnInit {
   activeMenuId: string | null = null;
 
   appModel: AppModel = {
-    brand: { title: 'Dynamic Application' },
-    topbar: { userLabelPrefix: 'Hi,', showLogout: true },
+    brand: { title: 'Dynamic Application',applicationName: 'Nestora Elite' },
+    topbar: { userLabelPrefix: 'Navin,', showLogout: true },
     menus: [],
     footer: { copyrightPrefix: '©', name: 'Nestora' },
   };
+  currentDateTime: Date;
 
   constructor(
     private authService: Auth,
     private router: Router,
     private route: ActivatedRoute,
     private navService: Nav
-  ) {}
+  ) {
+    this.currentDateTime = new Date();
+  }
 
   ngOnInit(): void {
     this.isMobile = window.innerWidth <= 768;
@@ -63,8 +66,8 @@ export class Home implements OnInit {
 
     // Single source of truth for navigation and labels
     this.appModel = {
-      brand: { title: 'Dynamic Application' },
-      topbar: { userLabelPrefix: 'Hi,', showLogout: true },
+      brand: { title: 'Dynamic Application',applicationName: 'Nestora Elite' },
+      topbar: { userLabelPrefix: 'Navin,', showLogout: true },
       menus: [
         {
           id: 'dashboard',

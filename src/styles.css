@@ -5,9 +5,10 @@
 }
 
 :root {
-  --primary: #5156be;
+  --primary: #2725bb;
   --background: rgba(0, 0, 0, 0.03);
   --white: #fff;
+   --grey: #a5a5a5;
   --primary-rgb: 81, 86, 190;
   /* for opacity backgrounds */
   --primary-light-04: rgba(var(--primary-rgb), 0.04);
@@ -29,4 +30,8 @@
 body,
 input {
   font-family: "roboto", sans-serif;
+}
+
+.table > tbody {
+    vertical-align: middle!important;
 }
