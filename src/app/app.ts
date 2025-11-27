@@ -11,5 +11,7 @@ import { Idle } from './core/services/idle';
 })
 export class App {
   protected readonly title = signal('Dynamic_Application');
-  
+  constructor(private idle: Idle) {
+    // ensure Idle service is instantiated at app startup
+  }
 }
