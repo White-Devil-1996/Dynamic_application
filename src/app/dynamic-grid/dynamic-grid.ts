@@ -405,7 +405,17 @@ export class DynamicGrid implements OnInit {
   /** Open form in view (read-only) mode. Pass the full record in navigation state. */
   goToViewForm(record: CustomerRecordInput) {
     // store record in shared service so the dynamic form can pick it up
+    console.debug('DynamicGrid: goToViewForm - setting editSvc and sessionStorage for id', record?.id);
     this.editSvc.set(record);
+    // also store in service map keyed by id so form can fetch by id
+    try { if (record?.id) this.editSvc.setById(String(record.id), record); } catch (err) { /* ignore */ }
+    // also persist temporarily in sessionStorage as a fallback for navigation state loss
+    try {
+      if (record && record.id) {
+        sessionStorage.setItem(`dynamic_record_${record.id}`, JSON.stringify(record));
+        console.debug('DynamicGrid: saved to sessionStorage key', `dynamic_record_${record.id}`);
+      }
+    } catch (err) { console.debug('DynamicGrid: sessionStorage save error', err); }
     this.router.navigate(['/home/container/dynamic-form'], {
       state: { record },
       queryParams: { mode: 'view', id: record.id }

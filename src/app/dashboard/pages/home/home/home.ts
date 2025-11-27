@@ -139,9 +139,16 @@ export class Home implements OnInit {
    * Only set the header label when the matched item is a leaf (no children).
    */
   updateActiveFromUrl(url: string) {
-    url = url.replace(/\/+$/, '');
+    // strip query string and fragment, and trailing slashes so matching is path-only
+    url = String(url).split('?')[0].split('#')[0].replace(/\/+$/, '');
     let matchedId: string | null = null;
     let matchedLabel: string | null = null;
+
+    // simple alias map: routes that should highlight an existing menu
+    const aliasMap: { [k: string]: { id: string; label: string } } = {
+      '/home/container/dynamic-form': { id: 'customers', label: 'Customers' },
+      '/home/container/dynamic-form/': { id: 'customers', label: 'Customers' }
+    };
 
     for (const m of this.appModel.menus) {
       // If top-level menu is a leaf (no children) and matches URL -> select it
@@ -158,6 +165,17 @@ export class Home implements OnInit {
             matchedLabel = c.label;
             this.openSubmenu = m.id; // Auto-open parent submenu when child is active
           }
+        }
+      }
+    }
+
+    // If no exact match found, check aliases (use startsWith for safety)
+    if (!matchedId) {
+      for (const aliasRoute of Object.keys(aliasMap)) {
+        if (url === aliasRoute || url.startsWith(aliasRoute + '/')) {
+          matchedId = aliasMap[aliasRoute].id;
+          matchedLabel = aliasMap[aliasRoute].label;
+          break;
         }
       }
     }

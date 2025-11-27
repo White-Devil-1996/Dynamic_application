@@ -8,7 +8,7 @@ import {
   ReactiveFormsModule,
   FormsModule
 } from '@angular/forms';
-import { ActivatedRoute, Router, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule, NavigationEnd } from '@angular/router';
 import Swal from 'sweetalert2';
 import { CommonModule } from '@angular/common';
 import { Subscription, lastValueFrom } from 'rxjs';
@@ -198,6 +198,7 @@ export class DynamicForm implements OnInit, OnDestroy {
 
     // read query params to decide mode (add/edit/view)
     this.ar.queryParams.subscribe(params => {
+      console.debug('DynamicForm: queryParams ->', params);
       const m = params['mode'];
       const id = params['id'];
       // set mode
@@ -206,6 +207,32 @@ export class DynamicForm implements OnInit, OnDestroy {
       this.readonly = (this.mode === 'view');
       // ensure controls reflect readonly state (disable/enable)
       this.applyReadonlyToControls();
+      // attempt to load from service map by id as a reliable fallback
+      if (id && !this.profileForm.getRawValue) {
+        // noop - keep for type-safety path (no-op)
+      }
+      if (id) {
+        try {
+          const byId = this.editSvc.getById ? this.editSvc.getById(String(id)) : null;
+          if (byId) {
+            console.debug('DynamicForm: loaded record from EditRecordService.getById for id', id, byId);
+            this.populateFormFromRecord(byId);
+            if (this.readonly) this.applyReadonlyToControls();
+          }
+        } catch (err) { console.debug('DynamicForm: getById error', err); }
+      }
+      // attempt to load from sessionStorage (fallback) when id present
+      if (id) {
+        try {
+          const raw = sessionStorage.getItem(`dynamic_record_${id}`);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            console.debug('DynamicForm: loaded record from sessionStorage for id', id, parsed);
+            this.populateFormFromRecord(parsed);
+            if (this.readonly) this.applyReadonlyToControls();
+          }
+        } catch (err) { console.debug('DynamicForm: sessionStorage parse error', err); }
+      }
       if (id) this.editingId = id;
 
       if (params['returnUrl']) {
@@ -215,6 +242,7 @@ export class DynamicForm implements OnInit, OnDestroy {
 
     // navigation state record (grid passed)
     const nav = this.router.getCurrentNavigation();
+    console.debug('DynamicForm: currentNavigation ->', !!nav, nav?.extras?.state);
     const rec = nav?.extras?.state?.['record'];
 
     // If there's a record in navigation state, populate the form
@@ -226,17 +254,61 @@ export class DynamicForm implements OnInit, OnDestroy {
     }
 
     // Try to populate from shared service or navigation state
-    const svcRec = this.editSvc.get();
-    if (svcRec) {
-      // small safety: schedule populate on next tick to avoid micro-timing issues
+    // Subscribe to shared service so form reacts when other components set the record (handles route reuse)
+    const svcSub = this.editSvc.watch().subscribe(svcRec => {
+      console.debug('DynamicForm: editSvc.watch emitted ->', svcRec);
+      if (svcRec) {
+        setTimeout(() => {
+          this.populateFormFromRecord(svcRec);
+          if (this.readonly) this.applyReadonlyToControls();
+        }, 0);
+      }
+    });
+    this.valueSubs.push(svcSub);
+
+    // Also check immediate snapshot value and navigation state as a fallback
+    const immediate = this.editSvc.get();
+    console.debug('DynamicForm: editSvc.get() immediate ->', immediate);
+    if (immediate) {
       setTimeout(() => {
-        this.populateFormFromRecord(svcRec);
+        this.populateFormFromRecord(immediate);
         if (this.readonly) this.applyReadonlyToControls();
       }, 0);
     } else {
       const nav2 = this.router.getCurrentNavigation();
+      console.debug('DynamicForm: nav2 currentNavigation ->', !!nav2, nav2?.extras?.state);
       const rec2 = nav2?.extras?.state?.['record'];
-      if (rec2) this.populateFormFromRecord(rec2);
+      if (rec2) {
+        this.populateFormFromRecord(rec2);
+        if (this.readonly) this.applyReadonlyToControls();
+      }
+
+      // Fallback: also check window.history.state (works when getCurrentNavigation is null)
+      try {
+        const hist = (window as any).history?.state;
+        console.debug('DynamicForm: window.history.state ->', hist);
+        if (hist && hist.record) {
+          this.populateFormFromRecord(hist.record);
+          if (this.readonly) this.applyReadonlyToControls();
+        }
+      } catch (err) {
+        console.debug('DynamicForm: could not read window.history.state', err);
+      }
+
+      // Also listen for navigation end in case route reuse causes component to persist
+      const routerEventsSub = this.router.events.subscribe(e => {
+        if (e instanceof NavigationEnd) {
+          try {
+            const hs = (window as any).history?.state;
+            if (hs && hs.record) {
+              console.debug('DynamicForm: NavigationEnd detected, history.state.record ->', hs.record);
+              this.populateFormFromRecord(hs.record);
+              if (this.readonly) this.applyReadonlyToControls();
+            }
+          } catch (err) { /* ignore */ }
+        }
+      });
+      this.valueSubs.push(routerEventsSub as unknown as Subscription);
     }
   }
 
@@ -360,11 +432,31 @@ export class DynamicForm implements OnInit, OnDestroy {
     for (const entry of entries) {
       const rawKey = entry.key;
       const payload = entry.payload;
-      const ctrlName = findControlName(rawKey, payload);
-
+      // Try to resolve an existing control name first. If not found, create
+      // a tolerant fallback control so incoming records always populate the form
+      // (this addresses timing/route-reuse cases where navigation state arrives
+      // before controls are present or naming mismatches occur).
+      let ctrlName = findControlName(rawKey, payload);
       if (!ctrlName) {
-        console.warn('populateFormFromRecord: no control found for incoming key/label:', rawKey, payload);
-        continue;
+        const fallbackName = String(rawKey || '').toLowerCase().replace(/[^a-z0-9]/g, '_') || this.sanitizeControlName(payload ?? rawKey);
+        try {
+          // Amount fields need currency/base controls
+          if (this.isAmountField(payload ?? { label: fallbackName })) {
+            if (!this.profileForm.contains(fallbackName)) this.profileForm.addControl(fallbackName, new FormControl<any>('', []));
+            if (!this.profileForm.contains(`${fallbackName}_currency`)) this.profileForm.addControl(`${fallbackName}_currency`, new FormControl<any>(this.profileForm.get('common_currency')?.value || this.baseCurrency));
+            if (!this.profileForm.contains(`${fallbackName}_base`)) this.profileForm.addControl(`${fallbackName}_base`, new FormControl<any>(0));
+          } else if (this.getInputType(payload) === 'checkbox') {
+            if (!this.profileForm.contains(fallbackName)) this.profileForm.addControl(fallbackName, new FormControl<any>(false, []));
+          } else {
+            const initial = (payload && payload.type === 'dropdown') ? null : '';
+            if (!this.profileForm.contains(fallbackName)) this.profileForm.addControl(fallbackName, new FormControl<any>({ value: initial, disabled: this.readonly }, []));
+          }
+          ctrlName = fallbackName;
+          console.debug('populateFormFromRecord: created fallback control', fallbackName);
+        } catch (err) {
+          console.warn('populateFormFromRecord: could not create fallback control for', rawKey, err);
+          continue;
+        }
       }
 
       // value extraction (primitive or { value: ... } or { val: ... })
